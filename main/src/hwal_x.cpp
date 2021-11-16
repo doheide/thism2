@@ -16,7 +16,7 @@ void HWAL_Log::logs(LogLevel ll, const char *str) {
         for (; (*cend != 0) && (*cend != '\n'); cend++);
 
         if(this->hwal == 0)
-            write_to_log("??????-?????? ");
+            write_to_log("xxxxxx-xxxxxx ");
         else {
             uint64_t t = this->hwal->get_time();
             write_time(t);
