@@ -30,3 +30,11 @@
 *.exe
 *.out
 *.app
+
+
+
+**/*.uml
+diagrams_out/makefile
+cmake-build-*/
+.idea
+**/*.old
