@@ -5,6 +5,7 @@ Templated hierachical state machine framework
   - Automatic generation of state machine diagrams
   - Consistency checks at compile time
   - Automatic static instantiation of state classes
+  - Minimal memory footprint
 
 ## Features of the framework
 
@@ -64,3 +65,42 @@ In subdirectory _example/_, an example consisting of two  simple state machines 
 
 ## API
 
+### MAKE_EVENT
+~~~
+#define MAKE_EVENT(EVENTNAME, OPTS)
+~~~
+Example:
+~~~
+MAKE_EVENT(E_LED_on, 0);
+~~~
+
+### MAKE_EVENT_LIST
+~~~
+#define MAKE_EVENT_LIST(XXX, ...)
+~~~
+Example:
+~~~
+MAKE_EVENT_LIST(EventList, E_LED_on, E_LED_off, E_On, E_Off, E_On_Blink);
+~~~
+
+### Make_StateMachine
+~~~
+#define Make_StateMachine(SMName, ...)
+~~~
+Example:
+~~~
+Make_StateMachine(SM_State, MarkInitialState<S_Off>, S_On, S_Blink, S_Blink_Off, S_Blink_On);
+~~~
+
+### StateSetup
+~~~
+StateSetup(STATECLASSNAME, DESCRIPTION)
+~~~
+Example:
+~~~
+struct S_Off : public StateBase {
+    StateSetup(S_Off, "Off state.") { }
+
+    /* more code */
+}
+~~~
