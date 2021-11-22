@@ -1,7 +1,7 @@
 //
 // Created by dheide on 15.11.21.
 //
-#include "hwal_x.h"
+#include "thism2/hwal_x.h"
 
 
 void HWAL_Log::logs(LogLevel ll, const char *str) {
@@ -15,14 +15,19 @@ void HWAL_Log::logs(LogLevel ll, const char *str) {
     while(true) {
         for (; (*cend != 0) && (*cend != '\n'); cend++);
 
-        if(this->hwal == 0)
-            write_to_log("xxxxxx-xxxxxx ");
-        else {
-            uint64_t t = this->hwal->get_time();
-            write_time(t);
-            write_to_log(" ");
+        if(cstart==str) {
+            if (this->hwal == 0)
+                write_to_log("xxxxxx-xxxxxx ");
+            else {
+                uint64_t t = this->hwal->get_time();
+                write_time(t);
+                write_to_log(" ");
+            }
+            write_loglevel(ll);
         }
-        write_loglevel(ll);
+        else for(int i=0; i!=25; i++)
+                write_to_log(" ");
+
         if(cstart==str)
             write_to_log(" - ");
         else

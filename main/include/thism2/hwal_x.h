@@ -16,6 +16,7 @@
 #endif
 
 class HWAL;
+//template<typename LoggerT> class HWAL_LoggerT;
 
 class HWAL_Log {
     friend HWAL;
@@ -49,7 +50,7 @@ protected:
     }
 
 public:
-    HWAL_Log(LogLevel ll) {
+    HWAL_Log(LogLevel ll = LogLevel::Always) {
         this->cloglevel = ll;
         this->hwal = 0;
     }
@@ -63,7 +64,7 @@ public:
         va_start(args, format);
 
         char str[HWAL_LOG_BUFFER_SIZE];
-        int r = write_to_mem(str, HWAL_LOG_BUFFER_SIZE, format, args);
+        write_to_mem(str, HWAL_LOG_BUFFER_SIZE, format, args);
         va_end(args);
 
         logs(ll, str);
@@ -74,23 +75,37 @@ public:
 // *****************************************************************************************************
 // *****************************************************************************************************
 class HWAL {
-    HWAL_Log *logger;
-
-public:
-    HWAL(HWAL_Log *hwal_log) {
-        this->logger = hwal_log;
-        this->logger->hwal_set(this);
+protected:
+    void set_this_to_logger(HWAL_Log *logger) {
+        logger->hwal_set(this);
     }
 
+public:
     virtual void print_chip_info() = 0;
+
     virtual void reboot() = 0;
+
     virtual void sleep_ms(uint64_t msecs) = 0;
 
     virtual uint64_t get_time() = 0;
 
-    HWAL_Log *logger_get() { return logger; }
+    virtual HWAL_Log *logger_get() = 0;
 };
 
+
+template<typename LoggerT>
+class HWAL_LoggerT : public HWAL {
+    LoggerT *logger;
+
+public:
+    HWAL_LoggerT(HWAL_Log::LogLevel ll) {
+        this->logger = new LoggerT(ll);
+        this->set_this_to_logger(this->logger);
+    }
+
+    HWAL_Log *logger_get() { return logger; }
+    LoggerT *logger_t_get() { return logger; }
+};
 
 
 #endif //CARA_FW_DEVICE_HWAL_X_H

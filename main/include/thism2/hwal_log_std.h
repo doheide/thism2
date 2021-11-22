@@ -11,7 +11,7 @@
 #include "hwal_x.h"
 
 
-class HWAL_Log_HPC : public HWAL_Log {
+class HWAL_Log_Std : public HWAL_Log {
 protected:
     virtual void write_to_log(const char *str){
         printf("%s", str);
@@ -31,7 +31,7 @@ protected:
     }
 
 public:
-    HWAL_Log_HPC(HWAL_Log::LogLevel ll) : HWAL_Log(ll)
+    HWAL_Log_Std(HWAL_Log::LogLevel ll) : HWAL_Log(ll)
     { }
 };
 
