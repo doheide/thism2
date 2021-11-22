@@ -1,9 +1,12 @@
 # thism2
 Templated hierachical state machine framework
 
-  - 
+  - Complete state machine definition at compile time
+  - Automatic generation of state machine diagrams
+  - Consistency checks at compile time
+  - Automatic static instantiation of state classes
 
-##Features of the framework
+## Features of the framework
 
   - Minimal boilerplate code for defining events. E.g. 
     ~~~
