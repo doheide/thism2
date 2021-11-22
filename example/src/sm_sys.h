@@ -39,12 +39,11 @@ struct HWAL_Std_No_HW : public HWAL_LoggerT<HWAL_Log_Std> {
 // **********************************************************
 // **********************************************************
 // Define Events
-struct E_LED_on; MAKE_EVENT(E_LED_on, 0);
-struct E_LED_off; MAKE_EVENT(E_LED_off, 0);
-struct E_On; MAKE_EVENT(E_On, 0);
-struct E_Off; MAKE_EVENT(E_Off, 0);
-struct E_On_Blink; MAKE_EVENT(E_On_Blink, 0);
-//struct E_Off_Blink; MAKE_EVENT(E_Off_Blink, 0);
+MAKE_EVENT(E_LED_on, 0);
+MAKE_EVENT(E_LED_off, 0);
+MAKE_EVENT(E_On, 0);
+MAKE_EVENT(E_Off, 0);
+MAKE_EVENT(E_On_Blink, 0);
 
 struct EventList; MAKE_EVENT_LIST(EventList, E_LED_on, E_LED_off, E_On, E_Off, E_On_Blink);
         //, E_Off_Blink);
@@ -126,9 +125,9 @@ StateSetup(S_Blink_Off, "Blink off state.") { }
 };
 
 
-struct SM_State;
+//struct SM_State;
 Make_StateMachine(SM_State, MarkInitialState<S_Off>, S_On, S_Blink, S_Blink_Off, S_Blink_On);
-struct SM_LED;
+// struct SM_LED;
 Make_StateMachine(SM_LED, MarkInitialState<S_LED_Off>, S_LED_On);
 
 typedef SMTimer<Collector<S_Blink_On, S_Blink_Off>> SMT_Std;
