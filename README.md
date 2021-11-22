@@ -94,7 +94,7 @@ Make_StateMachine(SM_State, MarkInitialState<S_Off>, S_On, S_Blink, S_Blink_Off,
 
 ### StateSetup
 ~~~
-StateSetup(STATECLASSNAME, DESCRIPTION)
+#define StateSetup(STATECLASSNAME, DESCRIPTION)
 ~~~
 Example:
 ~~~
