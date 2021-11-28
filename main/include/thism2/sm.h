@@ -558,6 +558,7 @@ public:
         return sysTime;
     }
 
+    /// \brief Activate inital states
     void initialSetup();
 
 protected:
@@ -916,8 +917,8 @@ template<typename ...>
 class SMSystem;
 
 //template<typename LALA, typename ...SMs>
-template<typename EVL, typename ...SMs, typename SMTimerList_>
-class SMSystem<EVL, Collector<SMs...>, SMTimerList_> : public SystemBase {
+template<typename EVL, typename ...SMs, typename SMTimerList_, typename HWAL_T>
+class SMSystem<EVL, Collector<SMs...>, SMTimerList_, HWAL_T> : public SystemBase {
 
 public:
     typedef SMSystem<SMs...> This;
@@ -967,15 +968,17 @@ public:
 
 protected:
     sys_detail::StateList<EventListT, StatesT, StatesWithInitialFlagT> statesImpl;
-    uint16_t _stateListTemp[ MaxStateLevelC_T::value ];
+    uint16_t _stateListTemp[ MaxStateLevelC_T::value ]{};
 
     EventListT eventList;
     SMTimerListT smTimerList;
 
+    HWAL_T *hwalt;
+
 //    BAHA_T *baha;
 
 public:
-    SMSystem(HWAL *_hwal) : SystemBase(_hwal), statesImpl() {
+    SMSystem(HWAL_T *_hwalt) : SystemBase(_hwalt), statesImpl(), hwalt(_hwalt) {
 //        baha->sysSet(this);
 
         numberOfStates = numberOfStatesT::value;
@@ -1040,8 +1043,30 @@ public:
         smTimerList.timerCounterRepeat[id] = 0;
     }
 
+    HWAL_T *hwaltGet() {
+        return hwalt;
+    }
 };
 
+
+//template<typename ...>
+//class SMSystem;
+//
+//template<typename EVL, typename ...SMs, typename SMTimerList_, typename HWAL_T>
+//class SMSystem<EVL, Collector<SMs...>, SMTimerList_, HWAL_T> : public SMSystem<EVL, Collector<SMs...>, SMTimerList_> {
+//    typedef Collector<SMs...> SMsT;
+//
+//    HWAL_T *hwalt;
+//
+//public:
+//    SMSystem(HWAL_T *_hwalt) : SMSystem<EVL, Collector<SMs...>, SMTimerList_>(_hwalt), hwalt(_hwalt) { }
+//
+//    virtual ~SMSystem() { }
+//
+//    HWAL_T *hwaltGet() {
+//        return hwalt;
+//    }
+//};
 
 #endif // SM2_H
 
