@@ -21,7 +21,7 @@ SCENARIO("setup of state machines system", "[tsmsys]" ) {
 
     GIVEN("State machine system is prepared for basic tests") {
         HWAL_Std_No_HW hwal(HWAL_Log::Debug);
-        SMSys csmsys((HWAL *) &hwal);
+        SMSys csmsys(&hwal);
         smsys = &csmsys;
 
         WHEN("system is instantiated") {
@@ -51,7 +51,7 @@ SCENARIO("setup of state machines system", "[tsmsys]" ) {
 
     GIVEN("State machine system is prepared for LED_On") {
         HWAL_Std_No_HW hwal(HWAL_Log::Debug);
-        SMSys csmsys((HWAL*) &hwal);
+        SMSys csmsys(&hwal);
         smsys = &csmsys;
 
         WHEN("system is initialized and event E_On is raised") {

@@ -25,8 +25,8 @@ struct HWAL_Std_No_HW : public HWAL_LoggerT<HWAL_Log_Std> {
         exit(0);
     }
 
-    void sleep_ms(uint64_t msecs) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(msecs));
+    void sleep_ticks(uint64_t ticks) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(ticks/10));
     }
 
     uint64_t get_time() {
@@ -133,7 +133,7 @@ Make_StateMachine(SM_LED, MarkInitialState<S_LED_Off>, S_LED_On);
 typedef SMTimer<Collector<S_Blink_On, S_Blink_Off>> SMT_Std;
 typedef SMTimerListTmpl<EventList, SMT_Std> SMTimerList;
 
-typedef SMSystem<EventList, Collector<SM_State, SM_LED>, SMTimerList> SMSys;
+typedef SMSystem<EventList, Collector<SM_State, SM_LED>, SMTimerList, HWAL_Std_No_HW> SMSys;
 
 extern SMSys *smsys;
 
