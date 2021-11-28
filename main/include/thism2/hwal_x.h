@@ -81,11 +81,8 @@ protected:
     }
 
 public:
-    virtual void print_chip_info() = 0;
-
-    virtual void reboot() = 0;
-
-    virtual void sleep_ms(uint64_t msecs) = 0;
+    // virtual void sleep_ms(uint64_t msecs) = 0;
+    virtual void sleep_ticks(uint64_t ticks) = 0;
 
     virtual uint64_t get_time() = 0;
 
