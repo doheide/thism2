@@ -8,7 +8,7 @@ SMSys *smsys;
 
 int main() {
     HWAL_Std_No_HW hwal(HWAL_Log::Debug);
-    SMSys csmsys((HWAL*) &hwal);
+    SMSys csmsys(&hwal);
     smsys = &csmsys;
 
     smsys->initialSetup();
@@ -17,7 +17,7 @@ int main() {
         smsys->processEvents();
         smsys->processEvents();
 
-        hwal.sleep_ms(1000);
+        hwal.sleep_ticks(100);
         smsys->sysTickCallback();
 
         if(smsys->sysTimeGet() == 3) {

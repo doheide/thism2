@@ -30,6 +30,10 @@
 
 #include "hwal_x.h"
 
+#ifndef LOG_INITIAL_EVENT
+#define LOG_INITIAL_EVENT false
+#endif
+
 // *****************************************************************
 /*
 #ifndef BAHA_TYPE
@@ -328,10 +332,10 @@ struct TransitionImpl {
     uint16_t stateId;
 };
 
-template<typename _ParentT, typename _TransitionsT>
+template<typename ParentT_, typename TransitionsT_>
 struct StateDetails  {
-    typedef _ParentT ParentT;
-    typedef _TransitionsT TransitionsT;
+    typedef ParentT_ ParentT;
+    typedef TransitionsT_ TransitionsT;
 };
 
 // *****
@@ -339,12 +343,16 @@ struct StateDetails  {
 //#include <iostream>
 
 class StateBase {
+    HWAL *hwal;
+    HWAL_Log::LogLevel llstate;
+
 protected:
     // Disable copy and moveconstructors, states are not to be copied or moved
-    StateBase(const char */*name*/, const char */*description*/) { }
-    StateBase(const StateBase &) { }
-    StateBase(StateBase &&) { }
-    StateBase(const StateBase &&) { }
+    StateBase(const char */*name*/, const char */*description*/, HWAL_Log::LogLevel _llstate)
+        : hwal(nullptr), llstate(_llstate) { }
+    StateBase(const StateBase &) : hwal(nullptr), llstate() { }
+    StateBase(StateBase &&) noexcept : hwal(nullptr), llstate() { }
+    StateBase(const StateBase &&) noexcept : hwal(nullptr), llstate(){ }
     StateBase& operator=(const StateBase&);      // Prevent assignment
 
 public:
@@ -358,6 +366,14 @@ public:
 #ifdef __useDescription
     virtual const char * description() = 0; //{ return ""; } // @todo make abstract
 #endif
+
+    void logf(HWAL_Log::LogLevel ll, int8_t color, const char *format, ...) {
+        va_list args;
+        va_start(args, format);
+        hwal->logger_get()->log_args(ll, color, format, args, name(), llstate);
+    }
+    void set_hwal(HWAL *_hwal) { this->hwal = _hwal; }
+    HWAL_Log::LogLevel llstate_get() { return llstate; }
 };
 
 //namespace sys_details {
@@ -410,6 +426,9 @@ STATECLASSNAME() : StateBase(#STATECLASSNAME, DESCRIPTION)
 
 #if defined(__useNames) && defined(__useDescription)
 #define StateSetup(STATECLASSNAME, DESCRIPTION) \
+StateSetupWLL(STATECLASSNAME, DESCRIPTION, HWAL_Log::Always)
+
+#define StateSetupWLL(STATECLASSNAME, DESCRIPTION, LL) \
 public: \
 typedef STATECLASSNAME ThisState; \
 void dummy() { static_assert(std::is_same<std::remove_reference<decltype(this)>::type, STATECLASSNAME*>::value, \
@@ -417,7 +436,7 @@ void dummy() { static_assert(std::is_same<std::remove_reference<decltype(this)>:
 const char *name() { return #STATECLASSNAME; } \
 const char *description() { return DESCRIPTION; } \
 using StateBase::internalTransition; \
-STATECLASSNAME() : StateBase(#STATECLASSNAME, DESCRIPTION)
+STATECLASSNAME() : StateBase(#STATECLASSNAME, DESCRIPTION, LL)
 #endif
 
 template<typename STATE>
@@ -575,7 +594,7 @@ protected:
 
     virtual StateBase *getStateById(uint16_t /*id*/) { return 0; } // @todo make abstract?
 
-    void raiseEventIdByIds(uint16_t eventId, uint16_t senderStateId);
+    void raiseEventIdByIds(uint16_t eventId, uint16_t senderStateId, bool preventLog=false);
 
     void executeTransition(uint16_t startState, uint16_t destState, uint16_t senderState, uint16_t event,
                            bool blockActivatedStates);
@@ -1015,9 +1034,11 @@ public:
     { return isStateActiveBI(StateId<STATE>::value); }
 
     template<typename EVENT, typename STATE> void raiseEvent()
-    { raiseEventIdByIds(EventListT::template EventId<EVENT>::value, StateId<STATE>::value); }
+    { raiseEventIdByIds(EventListT::template EventId<EVENT>::value, StateId<STATE>::value, false); }
     template<typename EVENT> void raiseEvent()
-    { raiseEventIdByIds(EventListT::template EventId<EVENT>::value, ID_S_Undefined); }
+    { raiseEventIdByIds(EventListT::template EventId<EVENT>::value, ID_S_Undefined, false); }
+    template<typename EVENT> void raiseEvent(uint16_t sender)
+    { raiseEventIdByIds(EventListT::template EventId<EVENT>::value, sender, false); }
 
     template<typename STATE> sys_detail::TransitionsForState *getStateTransitions() {
         return this->transitionsForStateGetBI(StateId<STATE>::value);
