@@ -16,7 +16,7 @@ struct HWAL_Std_No_HW : public HWAL_LoggerT<HWAL_Log_Std> {
     virtual void set_led(uint8_t v);
 
     void print_chip_info() {
-        logger_get()->logf(HWAL_Log::Warning, "lala");
+        logger_get()->logf(HWAL_Log::Warning, HWAL_Log::NoColor, "lala");
     }
 
     void reboot() {
@@ -130,8 +130,8 @@ Make_StateMachine(SM_State, MarkInitialState<S_Off>, S_On, S_Blink, S_Blink_Off,
 // struct SM_LED;
 Make_StateMachine(SM_LED, MarkInitialState<S_LED_Off>, S_LED_On);
 
-typedef SMTimer<Collector<S_Blink_On, S_Blink_Off>> SMT_Std;
-typedef SMTimerListTmpl<EventList, SMT_Std> SMTimerList;
+typedef SMTimer<Collector<S_Blink_On, S_Blink_Off>> SMT_Main;
+typedef SMTimerListTmpl<EventList, SMT_Main> SMTimerList;
 
 typedef SMSystem<EventList, Collector<SM_State, SM_LED>, SMTimerList, HWAL_Std_No_HW> SMSys;
 

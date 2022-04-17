@@ -43,12 +43,12 @@ Templated hierachical state machine framework
     ~~~
   - Macro for defining states that share a timer
     ~~~
-    typedef SMTimer<Collector<S_State1, S_State1>> SMT_Std;
+    typedef SMTimer<Collector<S_State1, S_State1>> SMT_Main;
     ~~~
   - Macro for defining a system of one or more state machines
     ~~~
     typedef SMSystem<EventList, Collector<SM_State, SM_LED>, 
-        SMTimerListTmpl<EventList, SMT_Std>> SMSys;
+        SMTimerListTmpl<EventList, SMT_Main>> SMSys;
     ~~~
   - Automatically create state machines diagrams with [PlantUML](https://plantuml.com/)  
 
