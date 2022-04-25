@@ -531,7 +531,6 @@ public:
 
     uint16_t getParentIdBI(uint16_t cstate);
 
-
     sys_detail::TransitionsForState transitionsForStateGetBI(uint16_t id) {
         sys_detail::TransitionsForState tfs;
         tfs.transitionNum = 0; tfs.transitions = 0;
@@ -566,6 +565,11 @@ public:
 
     void sysTickCallback();
 
+//protected:
+//    virtual void sysTick_MutexLockOrWait() {}
+//    virtual void sysTick_MutexUnLock() {}
+
+public:
 //#ifdef DO_SIMULATION
 //    Simu_helper::SimuCallbacks *sicaba;
 //    void setSimuCallbacks(Simu_helper::SimuCallbacks *_sicaba) {
@@ -689,8 +693,7 @@ namespace sys_detail {
             typedef std::integral_constant<uint16_t, sizeof...(TransitionsT)> sizeT;
             TransitionImpl impl[sizeT::value];
 
-            TransitionList() : impl { makeTransition<STATELIST, TransitionsT>()... } {
-            }
+            TransitionList() : impl { makeTransition<STATELIST, TransitionsT>()... } {}
         };
 
         template<typename STATELIST, typename STATE>
@@ -1032,13 +1035,21 @@ public:
 
     template<typename STATE> bool isStateActive()
     { return isStateActiveBI(StateId<STATE>::value); }
+//    template<typename STATE> bool hasInitialTransition()
+//    { return hasInitialTransitionBI(StateId<STATE>::value); }
 
-    template<typename EVENT, typename STATE> void raiseEvent()
-    { raiseEventIdByIds(EventListT::template EventId<EVENT>::value, StateId<STATE>::value, false); }
-    template<typename EVENT> void raiseEvent()
-    { raiseEventIdByIds(EventListT::template EventId<EVENT>::value, ID_S_Undefined, false); }
-    template<typename EVENT> void raiseEvent(uint16_t sender)
-    { raiseEventIdByIds(EventListT::template EventId<EVENT>::value, sender, false); }
+    template<typename EVENT, typename STATE> void raiseEvent() {
+        static_assert(detail::is_one_of_collection<EVENT, typename EventListT::AllEvents::type>::value, "CTC: Event is not part of systems event list.");
+        raiseEventIdByIds(EventListT::template EventId<EVENT>::value, StateId<STATE>::value, false);
+    }
+    template<typename EVENT> void raiseEvent() {
+        static_assert(detail::is_one_of_collection<EVENT, typename EventListT::AllEvents::type>::value, "CTC: Event is not part of systems event list.");
+        raiseEventIdByIds(EventListT::template EventId<EVENT>::value, ID_S_Undefined, false);
+    }
+    template<typename EVENT> void raiseEvent(uint16_t sender) {
+        static_assert(detail::is_one_of_collection<EVENT, typename EventListT::AllEvents::type>::value, "CTC: Event is not part of systems event list.");
+        raiseEventIdByIds(EventListT::template EventId<EVENT>::value, sender, false);
+    }
 
     template<typename STATE> sys_detail::TransitionsForState *getStateTransitions() {
         return this->transitionsForStateGetBI(StateId<STATE>::value);
