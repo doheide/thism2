@@ -39,7 +39,7 @@ protected:
 
 public:
     enum LogLevel {Always, Error, Warning, Info, Details, Debug};
-    enum Color {Reset=-2, NoColor, DDRed, DRed, Red, DGreen, IGreen, Yellow, Pink, LBlue};
+    enum Color {Reset=-2, NoColor, DDRed, DRed, Red, DGreen, IGreen, Yellow, Pink, LBlue, Orange, DOrange};
 
 protected:
     LogLevel cloglevel;
@@ -54,6 +54,8 @@ protected:
             case (int) Yellow: write_to_log("\033[38;5;11m"); break;
             case (int) Pink: write_to_log("\033[38;5;13m"); break;
             case (int) LBlue: write_to_log("\033[38;5;14m"); break;
+            case (int) Orange: write_to_log("\033[38;5;208m"); break;
+            case (int) DOrange: write_to_log("\033[38;5;208m"); break;
             default: write_to_log("\033[0m"); break;
         }
 
@@ -120,6 +122,9 @@ protected:
 public:
     // virtual void sleep_ms(uint64_t msecs) = 0;
     virtual void sleep_ticks(uint64_t ticks) = 0;
+
+    virtual void sysTick_MutexLockOrWait() {};
+    virtual void sysTick_MutexUnLock() {};
 
     virtual uint64_t get_time() = 0;
     virtual uint8_t write_logger_time(uint64_t) = 0;
