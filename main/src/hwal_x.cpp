@@ -31,7 +31,7 @@ void HWAL_Log::logs(LogLevel ll, int8_t color, const char *str, const char *stat
             }
             write_loglevel(ll);
         }
-        else for(int i=0; i!=time_area+10; i++)
+        else for(int i=0; i!=time_area+9; i++)
                 write_to_log(" ");
 
         if(statename!=0) {
@@ -41,7 +41,7 @@ void HWAL_Log::logs(LogLevel ll, int8_t color, const char *str, const char *stat
         }
 
         if(cstart==str)
-            write_to_log("  ");
+            write_to_log(" ");
         else
             write_to_log("| ");
 
