@@ -777,6 +777,11 @@ namespace sys_detail {
             return &s;
         }
         template<typename STATE>
+        STATE &getRef() {
+            STATE &s = static_cast<helper::StateListElement<ThisT, STATE>*>(&states)->state;
+            return s;
+        }
+        template<typename STATE>
         StateBase *getBase() {
             return get<STATE>();
         }
@@ -1031,6 +1036,7 @@ public:
 
     StateBase *getStateById(uint16_t id) { return statesImpl.getById(id); }
     template<typename STATE> STATE *getState() { return statesImpl.template get<STATE>(); }
+    template<typename STATE> STATE &getStateRef() { return statesImpl.template getRef<STATE>(); }
     template<typename STATE> StateBase *getStateBase() { return statesImpl.template getBase<STATE>(); }
 
     template<typename STATE> bool isStateActive()
@@ -1042,7 +1048,7 @@ public:
         static_assert(detail::is_one_of_collection<EVENT, typename EventListT::AllEvents::type>::value, "CTC: Event is not part of systems event list.");
         raiseEventIdByIds(EventListT::template EventId<EVENT>::value, StateId<STATE>::value, false);
     }
-    template<typename EVENT> void raiseEvent() {
+    template<typename EVENT> void raiseEvent_noSender() {
         static_assert(detail::is_one_of_collection<EVENT, typename EventListT::AllEvents::type>::value, "CTC: Event is not part of systems event list.");
         raiseEventIdByIds(EventListT::template EventId<EVENT>::value, ID_S_Undefined, false);
     }
