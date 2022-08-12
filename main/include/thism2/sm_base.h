@@ -1,5 +1,6 @@
-#ifndef SM_BASE_H
-#define SM_BASE_H
+#pragma once
+//#ifndef SM_BASE_H
+//#define SM_BASE_H
 
 // ******************************************************************
 // ******************************************************************
@@ -223,5 +224,4 @@ namespace detail {
     make_tester_func_details_type(TransitionsT);
 }
 
-
-#endif // SM_BASE_H
+//#endif // SM_BASE_H

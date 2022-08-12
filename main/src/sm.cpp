@@ -47,22 +47,24 @@ void SystemBase::processEvents() {
 //        lol->logf(HWAL_Log::Details, "pe: transitionsNumberPerState[%d] = %d",
 //                  csi, transitionsNumberPerState[csi]);
 
+    raiseEvent_MutexLockOrWait();
     uint8_t readUntil = eventBufferWritePos;
-    if(eventBufferReadPos != readUntil)
-        lol->logf(HWAL_Log::Debug, -1, "processEvents() - new events.");
+    raiseEvent_MutexUnLock();
+    if(eventBufferReadPos == readUntil)
+        return;
+    lol->logf(HWAL_Log::Debug, -1, "processEvents() - new events.");
 
     for(; eventBufferReadPos != readUntil; eventBufferReadPos=(eventBufferReadPos+1)&((1<<EVENT_BUFFER_SIZE_V)-1)) {
     //for(uint8_t i=eventBufferReadPos; i != readUntil; i=(i+1)&((1<<EVENT_BUFFER_SIZE_V)-1)) {
         sys_detail::EventBuffer &cevent = eventBuffer[eventBufferReadPos];
 
-        // lol->logf(HWAL_Log::Debug, HWAL_Log::DGreen, "!! EBuffer %s | %s\n",
-        //           getEventName(cevent.event), getStateName(cevent.sender));
+         lol->logf(HWAL_Log::Debug, HWAL_Log::DGreen, "!! EBuffer %s | %s\n",
+                   getEventName(cevent.event), getStateName(cevent.sender));
 
         for(uint16_t level = maxLevel; level!=0; level--)
             for(uint16_t csi=0; csi!=numberOfStates; csi++)
                 if(isStateActiveBI(csi) && (stateLevels[csi]==level)) {
                     //BAHABase->logLine("active + level: ", (uint16_t) level, " ", StateIdT{csi}, " ", (uint8_t)csi);
-
 
                     for(uint16_t tii=0; tii!=transitionsNumberPerState[csi]; tii++) {
 //                        lol->logf(HWAL_Log::Details, "pe: checking trns[%d][%d]", csi, tii);
@@ -83,9 +85,13 @@ void SystemBase::processEvents() {
                         if(checkEventProtection(cevent, csi)) {
                             StateBase *sb = getStateById(csi);
                             sb->internalTransition(cevent.event, cevent.sender);
+                            sb->internalTransition_withPayload(cevent.event, cevent.sender, cevent.payload);
                         }
                     }
         }
+
+        if(cevent.payload!=0)
+            delete cevent.payload;
 
 //        for(; eventBufferReadPos != readUntil; eventBufferReadPos=(eventBufferReadPos+1)&((1<<EVENT_BUFFER_SIZE_V)-1)) {
 //            sys_detail::EventBuffer &cevent = eventBuffer[i];
@@ -106,6 +112,7 @@ void SystemBase::processEvents() {
                 }
         } */
     }
+    lol->logf(HWAL_Log::Debug, -1, "processEvents() - finished.");
 
 /*    for(; eventBufferReadPos != readUntil; eventBufferReadPos=(eventBufferReadPos+1)&((1<<EVENT_BUFFER_SIZE_V)-1)) {
         EventBuffer &cevent = eventBuffer[eventBufferReadPos];
@@ -201,14 +208,16 @@ void SystemBase::sysTickCallback() {
     hwal->sysTick_MutexUnLock();
 }
 
-void SystemBase::raiseEventIdByIds(uint16_t eventId, uint16_t senderStateId, bool preventLog) {
+void SystemBase::raiseEventIdByIds(uint16_t eventId, uint16_t senderStateId, bool preventLog, EventPayloadBase *payload) {
     if(!preventLog) {
         HWAL_Log *lol = this->hwal->logger_get();
         lol->logf(HWAL_Log::Info, HWAL_Log::IGreen, "!! R %s | %s", getEventName(eventId), getStateName(senderStateId));
     }
 
-    eventBuffer[eventBufferWritePos++] = { eventId, senderStateId };
+    raiseEvent_MutexLockOrWait();
+    eventBuffer[eventBufferWritePos++] = {eventId, senderStateId, payload };
     eventBufferWritePos &= (1<<EVENT_BUFFER_SIZE_V) - 1;
+    raiseEvent_MutexUnLock();
 }
 
 void SystemBase::executeTransition(uint16_t startState, uint16_t destState, uint16_t senderState, uint16_t event,
@@ -217,7 +226,6 @@ void SystemBase::executeTransition(uint16_t startState, uint16_t destState, uint
 
     if(!isStateActiveBI(startState)) {
         // @todo Add error message
-
         raiseEventIdByIds(ID_E_FatalError, senderState, false);
     }
 

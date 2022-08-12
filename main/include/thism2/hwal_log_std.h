@@ -1,6 +1,6 @@
-
-#ifndef CARA_FW_DEVICE_HWAL_LOG_STD_H
-#define CARA_FW_DEVICE_HWAL_LOG_STD_H
+#pragma once
+//#ifndef CARA_FW_DEVICE_HWAL_LOG_STD_H
+//#define CARA_FW_DEVICE_HWAL_LOG_STD_H
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -36,4 +36,4 @@ struct HWAL_Log_Std : public HWAL_Log {
 };
 
 
-#endif // CARA_FW_DEVICE_HWAL_LOG_STD_H
+//#endif // CARA_FW_DEVICE_HWAL_LOG_STD_H

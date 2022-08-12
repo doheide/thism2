@@ -2,12 +2,12 @@
 // Created by dheide on 10.11.21.
 //
 
-#ifndef CARA_FW_DEVICE_HWAL_X_H
-#define CARA_FW_DEVICE_HWAL_X_H
+#pragma once
+//#ifndef CARA_FW_DEVICE_HWAL_X_H
+//#define CARA_FW_DEVICE_HWAL_X_H
 
 #include <cstdint>
 #include <cstdarg>
-
 
 // **********************************************************************************
 // **********************************************************************************
@@ -153,4 +153,4 @@ public:
 };
 
 
-#endif //CARA_FW_DEVICE_HWAL_X_H
+//#endif //CARA_FW_DEVICE_HWAL_X_H

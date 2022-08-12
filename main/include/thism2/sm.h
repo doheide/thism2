@@ -22,8 +22,9 @@
 // SOFTWARE.
 //
 
-#ifndef SM_H
-#define SM_H
+#pragma once
+//#ifndef SM_H
+//#define SM_H
 
 #include <type_traits>
 #include <stdint.h>
@@ -168,23 +169,33 @@ namespace sys_detail {
 }
 
 // ******************************************************************
+struct EventPayloadBase {};
+
 #define EOPT_ONLY_FROM_SELF 1
 #define EOPT_ONLY_FROM_SELF_OR_PARENT 3
 #define EOPT_ONLY_FROM_SELF_OR_PARENT_OR_CHILD 7
 
 #ifdef __useNames
-#define MAKE_EVENT(EVENTNAME, OPTS) \
-struct EVENTNAME { \
+#define MAKE_EVENT_W_PAYLOAD(EVENTNAME, OPTS, PAYLOAD_TYPE) \
+struct EVENTNAME {                                         \
+    typedef PAYLOAD_TYPE payload_type; \
     typedef event_details::EventBase details; \
     static const char * name() { return #EVENTNAME; }\
     typedef std::integral_constant<uint8_t, OPTS> val_t; \
 }
-#else
 #define MAKE_EVENT(EVENTNAME, OPTS) \
+MAKE_EVENT_W_PAYLOAD(EVENTNAME, OPTS, EventPayloadBase)
+
+#else
+#define MAKE_EVENT_W_PAYLOAD(EVENTNAME, OPTS, PAYLOAD_TYPE) \
 struct EVENTNAME { \
+    typedef PAYLOAD_TYPE payload_type; \
     typedef event_details::EventBase details; \
     std::integral_constant<uint8_t, OPTS> val_t; \
 }
+#define MAKE_EVENT(EVENTNAME, OPTS) \
+MAKE_EVENT_W_PAYLOAD(EVENTNAME, OPTS, void)
+
 #endif
 
 namespace event_details {
@@ -357,7 +368,7 @@ protected:
 
 public:
     virtual void internalTransition(uint16_t event, uint16_t sender) { };
-
+    virtual void internalTransition_withPayload(uint16_t event, uint16_t sender, void *payload) { };
     virtual void onEnter(uint16_t senderStateId, uint16_t event, bool isDestState, bool reentering) { };
     virtual void onExit(bool reentering) { }
 #ifdef __useNames
@@ -463,6 +474,7 @@ namespace sys_detail {
 	struct EventBuffer {
 		uint16_t event;
 		uint16_t sender;
+        EventPayloadBase *payload;
 	};
 
     struct TransitionsForState {
@@ -598,7 +610,7 @@ protected:
 
     virtual StateBase *getStateById(uint16_t /*id*/) { return 0; } // @todo make abstract?
 
-    void raiseEventIdByIds(uint16_t eventId, uint16_t senderStateId, bool preventLog=false);
+    void raiseEventIdByIds(uint16_t eventId, uint16_t senderStateId, bool preventLog=false, EventPayloadBase *payload=0);
 
     void executeTransition(uint16_t startState, uint16_t destState, uint16_t senderState, uint16_t event,
                            bool blockActivatedStates);
@@ -609,6 +621,9 @@ protected:
 
     void activateStateAndParentsByIds(uint16_t destState, uint16_t senderState, uint16_t event,
                                       bool blockActivatedStates=true, bool initMode=false);
+
+    virtual void raiseEvent_MutexLockOrWait() {}
+    virtual void raiseEvent_MutexUnLock() {}
 
 public:
     bool checkIfStateIsChildOfOrSame(uint16_t parentState, uint16_t childState);
@@ -1044,17 +1059,17 @@ public:
 //    template<typename STATE> bool hasInitialTransition()
 //    { return hasInitialTransitionBI(StateId<STATE>::value); }
 
-    template<typename EVENT, typename STATE> void raiseEvent() {
+    template<typename EVENT, typename STATE> void raiseEvent(typename EVENT::payload_type *payload=0) {
         static_assert(detail::is_one_of_collection<EVENT, typename EventListT::AllEvents::type>::value, "CTC: Event is not part of systems event list.");
-        raiseEventIdByIds(EventListT::template EventId<EVENT>::value, StateId<STATE>::value, false);
+        raiseEventIdByIds(EventListT::template EventId<EVENT>::value, StateId<STATE>::value, false, payload);
     }
-    template<typename EVENT> void raiseEvent_noSender() {
+    template<typename EVENT> void raiseEvent_noSender(typename EVENT::payload_type *payload=0) {
         static_assert(detail::is_one_of_collection<EVENT, typename EventListT::AllEvents::type>::value, "CTC: Event is not part of systems event list.");
-        raiseEventIdByIds(EventListT::template EventId<EVENT>::value, ID_S_Undefined, false);
+        raiseEventIdByIds(EventListT::template EventId<EVENT>::value, ID_S_Undefined, false, payload);
     }
-    template<typename EVENT> void raiseEvent(uint16_t sender) {
+    template<typename EVENT> void raiseEvent(uint16_t sender, typename EVENT::payload_type *payload=0) {
         static_assert(detail::is_one_of_collection<EVENT, typename EventListT::AllEvents::type>::value, "CTC: Event is not part of systems event list.");
-        raiseEventIdByIds(EventListT::template EventId<EVENT>::value, sender, false);
+        raiseEventIdByIds(EventListT::template EventId<EVENT>::value, sender, false, payload);
     }
 
     template<typename STATE> sys_detail::TransitionsForState *getStateTransitions() {
@@ -1106,6 +1121,6 @@ public:
 //    }
 //};
 
-#endif // SM2_H
+//#endif // SM2_H
 
 

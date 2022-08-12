@@ -161,10 +161,10 @@ void make_treeuml_allSMs(SYS *sys, const char *path) {
     QString makefile = QString("PUML    = plantuml\nUMLS = %1\n\n"
                                "all: hello\n\n"
                                "hello:\n\t@echo \"building\" $(UMLS)\n"
-                               "\t$(PUML) -tpng -progress $(UMLS)\n\t@echo\n"
+                               "\t$(PUML) -tsvg -progress $(UMLS)\n\t@echo\n"
                                "\t@echo \"done.\"\n\n"
                                "clean:\n\t@echo \"cleaning ...\"\n"
-                               "\t@rm *.png 2>/dev/null\n\t@echo \"done.\"\n").arg(pngs);
+                               "\t@rm *.svg 2>/dev/null\n\t@echo \"done.\"\n").arg(pngs);
 
     QFile file(QString("%1/makefile").arg(path));
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
