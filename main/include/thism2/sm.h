@@ -343,10 +343,11 @@ struct TransitionImpl {
     uint16_t stateId;
 };
 
-template<typename ParentT_, typename TransitionsT_>
+template<typename ParentT_, bool EmitInitialEventOnEnter, typename TransitionsT_>
 struct StateDetails  {
     typedef ParentT_ ParentT;
     typedef TransitionsT_ TransitionsT;
+    static bool emitInitialEventOnEnter() { return EmitInitialEventOnEnter; }
 };
 
 // *****
@@ -385,6 +386,8 @@ public:
     }
     void set_hwal(HWAL *_hwal) { this->hwal = _hwal; }
     HWAL_Log::LogLevel llstate_get() { return llstate; }
+
+    virtual bool emitInitialEventOnEnter() = 0;
 };
 
 //namespace sys_details {
@@ -400,7 +403,8 @@ public:
 
 #define StateSetup_wwww(STATECLASSNAME, DESCRIPTION) \
 public: \
-typedef STATECLASSNAME ThisState; \
+typedef STATECLASSNAME ThisState;                    \
+virtual bool emitInitialEventOnEnter() final { return details::emitInitialEventOnEnter(); } \
 void dummy() { static_assert(std::is_same<std::remove_reference<decltype(this)>::type, STATECLASSNAME*>::value, \
     "CTC: state_setup(): First argument has to be the type of the parent class."); } \
 static ThisState *getInstance() { \
@@ -417,7 +421,8 @@ STATECLASSNAME() : StateBase(#STATECLASSNAME, DESCRIPTION)
 #ifdef __noNames
 #define StateSetup(STATECLASSNAME, DESCRIPTION) \
 public: \
-typedef STATECLASSNAME ThisState; \
+typedef STATECLASSNAME ThisState;               \
+virtual bool emitInitialEventOnEnter() final { return details::emitInitialEventOnEnter(); } \
 void dummy() { static_assert(std::is_same<std::remove_reference<decltype(this)>::type, STATECLASSNAME*>::value, \
     "CTC: state_setup(): First argument has to be the type of the parent class."); } \
 using StateBase::internalTransition; \
@@ -428,6 +433,7 @@ STATECLASSNAME() : StateBase(#STATECLASSNAME, DESCRIPTION)
 #define StateSetup(STATECLASSNAME, DESCRIPTION) \
 public: \
 typedef STATECLASSNAME ThisState; \
+bool emitInitialEventOnEnter() final { return details::emitInitialEventOnEnter(); } \
 void dummy() { static_assert(std::is_same<std::remove_reference<decltype(this)>::type, STATECLASSNAME*>::value, \
     "CTC: state_setup(): First argument has to be the type of the parent class."); } \
 const char *name() { return #STATECLASSNAME; } \
@@ -442,6 +448,7 @@ StateSetupWLL(STATECLASSNAME, DESCRIPTION, HWAL_Log::Always)
 #define StateSetupWLL(STATECLASSNAME, DESCRIPTION, LL) \
 public: \
 typedef STATECLASSNAME ThisState; \
+bool emitInitialEventOnEnter() final { return details::emitInitialEventOnEnter(); } \
 void dummy() { static_assert(std::is_same<std::remove_reference<decltype(this)>::type, STATECLASSNAME*>::value, \
     "CTC: state_setup(): First argument has to be the type of the parent class."); } \
 const char *name() { return #STATECLASSNAME; } \
@@ -562,6 +569,8 @@ public:
             return "Initialization";
         return statesBP[id]->name();
     }
+
+    bool doLogTransitions, doLogRaiseEvent, doLogEnterState, doLogExitState, doLogEventFromBuffer;
 
 //    virtual void logStateName(uint16_t id) {
 //#ifdef __useNames
