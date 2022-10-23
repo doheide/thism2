@@ -938,6 +938,7 @@ struct SMTimer : sys_detail::SMTimer_Base {
 };
 template<typename EventListT, typename ... SMTIMERs>
 struct SMTimerListTmpl {
+    // @todo Check that Events are in EventListT
     typedef Collector<SMTIMERs ...> TimersT;
 
     template<typename TIMER>
@@ -1059,29 +1060,42 @@ public:
     virtual ~SMSystem() { }
 
     StateBase *getStateById(uint16_t id) { return statesImpl.getById(id); }
-    template<typename STATE> STATE *getState() { return statesImpl.template get<STATE>(); }
-    template<typename STATE> STATE &getStateRef() { return statesImpl.template getRef<STATE>(); }
-    template<typename STATE> StateBase *getStateBase() { return statesImpl.template getBase<STATE>(); }
+    template<typename STATE> STATE *getState() {
+        static_assert(detail::is_one_of_collection<STATE, StatesT>::value, "CTC raiseEvent<>(): State is not part of systems state list.");
+        return statesImpl.template get<STATE>();
+    }
+    template<typename STATE> STATE &getStateRef() {
+        static_assert(detail::is_one_of_collection<STATE, StatesT>::value, "CTC raiseEvent<>(): State is not part of systems state list.");
+        return statesImpl.template getRef<STATE>();
+    }
+    template<typename STATE> StateBase *getStateBase() {
+        static_assert(detail::is_one_of_collection<STATE, StatesT>::value, "CTC raiseEvent<>(): State is not part of systems state list.");
+        return statesImpl.template getBase<STATE>();
+    }
 
-    template<typename STATE> bool isStateActive()
-    { return isStateActiveBI(StateId<STATE>::value); }
+    template<typename STATE> bool isStateActive() {
+        static_assert(detail::is_one_of_collection<STATE, StatesT>::value, "CTC raiseEvent<>(): State is not part of systems state list.");
+        return isStateActiveBI(StateId<STATE>::value);
+    }
 //    template<typename STATE> bool hasInitialTransition()
 //    { return hasInitialTransitionBI(StateId<STATE>::value); }
 
     template<typename EVENT, typename STATE> void raiseEvent(typename EVENT::payload_type *payload=0) {
-        static_assert(detail::is_one_of_collection<EVENT, typename EventListT::AllEvents::type>::value, "CTC: Event is not part of systems event list.");
+        static_assert(detail::is_one_of_collection<EVENT, typename EventListT::AllEvents::type>::value, "CTC raiseEvent<>(): Event is not part of systems event list.");
+        static_assert(detail::is_one_of_collection<STATE, StatesT>::value, "CTC raiseEvent<>(): State is not part of systems state list.");
         raiseEventIdByIds(EventListT::template EventId<EVENT>::value, StateId<STATE>::value, false, payload);
     }
     template<typename EVENT> void raiseEvent_noSender(typename EVENT::payload_type *payload=0) {
-        static_assert(detail::is_one_of_collection<EVENT, typename EventListT::AllEvents::type>::value, "CTC: Event is not part of systems event list.");
+        static_assert(detail::is_one_of_collection<EVENT, typename EventListT::AllEvents::type>::value, "CTC raiseEvent<>(): Event is not part of systems event list.");
         raiseEventIdByIds(EventListT::template EventId<EVENT>::value, ID_S_Undefined, false, payload);
     }
     template<typename EVENT> void raiseEvent(uint16_t sender, typename EVENT::payload_type *payload=0) {
-        static_assert(detail::is_one_of_collection<EVENT, typename EventListT::AllEvents::type>::value, "CTC: Event is not part of systems event list.");
+        static_assert(detail::is_one_of_collection<EVENT, typename EventListT::AllEvents::type>::value, "CTC raiseEvent<>(): Event is not part of systems event list.");
         raiseEventIdByIds(EventListT::template EventId<EVENT>::value, sender, false, payload);
     }
 
     template<typename STATE> sys_detail::TransitionsForState *getStateTransitions() {
+        static_assert(detail::is_one_of_collection<STATE, StatesT>::value, "CTC raiseEvent<>(): State is not part of systems state list.");
         return this->transitionsForStateGetBI(StateId<STATE>::value);
     }
 
@@ -1097,6 +1111,11 @@ public:
             smTimerList.timerCounterRepeat[id] = 0;
         smTimerList.timerOwner[id] = StateId<OWNER>::value;
         smTimerList.timerInitiator[id] = StateId<INITIATOR>::value;
+    }
+    template<typename TIMER>
+    uint32_t getCurrentTimerCounter() {
+        uint16_t id = SMTimerListT::template TimerId<TIMER>::value;
+        return smTimerList.timerCounter[id];
     }
     template<typename TIMER>
     void disableTimer() {
