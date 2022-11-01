@@ -40,7 +40,7 @@ SystemBase::SystemBase(HWAL *_hwal)
 
 void SystemBase::processEvents() {
     HWAL_Log *lol = this->hwal->logger_get();
-//    lol->logf(HWAL_Log::Debug, "processEvents(): ");
+    // lol->logf(HWAL_Log::Debug, HWAL_Log::NoColor, "processEvents(): ");
 
     // @todo add special treatment for E_Initial -> only process for sending state
     //smSystem_helper::TransitionBufferSys tr;

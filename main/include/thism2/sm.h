@@ -151,18 +151,30 @@ protected:
 // ******************************************************************
 namespace sys_detail {
     namespace helper {
+        namespace id_helper {
+            template <typename T> struct ClassNotInList { enum { value = false }; };
+            struct ErrorOnVoid { enum { value = false }; };
+            struct ReturnFFFFOnVoid { enum { value = true }; };
+
+        };
         template <typename ...>
         struct Id_Impl;
-        template <typename CSTATE, uint16_t IDX, typename STATE, typename ... STATEs>
-        struct Id_Impl<CSTATE, std::integral_constant<uint16_t, IDX>, Collector<STATE, STATEs...>> {
-            typedef typename Id_Impl<CSTATE, std::integral_constant<uint16_t, IDX+1>, Collector<STATEs...>>::type type;
+        template <typename CSTATE, uint16_t IDX, typename STATE, typename ... STATEs, typename VoidBehaviour>
+        struct Id_Impl<CSTATE, std::integral_constant<uint16_t, IDX>, Collector<STATE, STATEs...>, VoidBehaviour> {
+            typedef typename Id_Impl<CSTATE, std::integral_constant<uint16_t, IDX+1>, Collector<STATEs...>, VoidBehaviour>::type type;
         };
-        template <typename CSTATE, uint16_t IDX, typename ... STATEs>
-        struct Id_Impl<CSTATE, std::integral_constant<uint16_t, IDX>, Collector<CSTATE, STATEs...>> {
+        template <typename CSTATE, uint16_t IDX, typename ... STATEs, typename VoidBehaviour>
+        struct Id_Impl<CSTATE, std::integral_constant<uint16_t, IDX>, Collector<CSTATE, STATEs...>, VoidBehaviour> {
             typedef typename std::integral_constant<uint16_t, IDX> type;
         };
-        template <typename CSTATE, uint16_t IDX>
-        struct Id_Impl<CSTATE, std::integral_constant<uint16_t, IDX>, Collector<>> {
+        template <typename CSTATE, uint16_t IDX, typename VoidBehaviour>
+        struct Id_Impl<CSTATE, std::integral_constant<uint16_t, IDX>, Collector<>, VoidBehaviour> {
+            static_assert(id_helper::ClassNotInList<CSTATE>::value, "Event unknown");
+            typedef typename std::integral_constant<uint16_t, 0xFFFF> type;
+        };
+        template <uint16_t IDX, typename VoidBehaviour>
+        struct Id_Impl<void, std::integral_constant<uint16_t, IDX>, Collector<>, VoidBehaviour> {
+            static_assert(VoidBehaviour::value, "Event unknown");
             typedef typename std::integral_constant<uint16_t, 0xFFFF> type;
         };
     }
@@ -262,7 +274,8 @@ namespace event_details {
         static const uint16_t size = sizeof...(A);
 
         template<typename CEV>
-        using EventId = typename sys_detail::helper::Id_Impl<CEV, std::integral_constant<uint16_t, 0>, Collector<A...>>::type;
+        using EventId = typename sys_detail::helper::Id_Impl<CEV, std::integral_constant<uint16_t, 0>, Collector<A...>,
+                sys_detail::helper::id_helper::ErrorOnVoid>::type;
 
         uint8_t eventOpts[sizeof...(A)];
 
@@ -769,7 +782,8 @@ namespace sys_detail {
         typedef L_EventListT EventListT;
 
         template<typename CSTATE>
-        using StateId = typename helper::Id_Impl<CSTATE, std::integral_constant<uint16_t, 0>, Collector<STATEs...>>::type;
+        using StateId = typename helper::Id_Impl<CSTATE, std::integral_constant<uint16_t, 0>, Collector<STATEs...>,
+                sys_detail::helper::id_helper::ReturnFFFFOnVoid>::type;
 
         typedef std::integral_constant<uint16_t, sizeof...(STATEs)> numberOfStatesT;
 
@@ -942,7 +956,8 @@ struct SMTimerListTmpl {
     typedef Collector<SMTIMERs ...> TimersT;
 
     template<typename TIMER>
-    using TimerId = typename sys_detail::helper::Id_Impl<TIMER, std::integral_constant<uint16_t, 0>, Collector<SMTIMERs...>>::type;
+    using TimerId = typename sys_detail::helper::Id_Impl<TIMER, std::integral_constant<uint16_t, 0>, Collector<SMTIMERs...>,
+            sys_detail::helper::id_helper::ErrorOnVoid>::type;
 
     static constexpr uint16_t size = sizeof...(SMTIMERs);
     uint32_t timerCounter[size];
