@@ -157,6 +157,7 @@ namespace sys_detail {
             struct ReturnFFFFOnVoid { enum { value = true }; };
 
         };
+        // @todo rename VoidBehaviour to NotFoundInListBehaviour
         template <typename ...>
         struct Id_Impl;
         template <typename CSTATE, uint16_t IDX, typename STATE, typename ... STATEs, typename VoidBehaviour>
@@ -169,7 +170,7 @@ namespace sys_detail {
         };
         template <typename CSTATE, uint16_t IDX, typename VoidBehaviour>
         struct Id_Impl<CSTATE, std::integral_constant<uint16_t, IDX>, Collector<>, VoidBehaviour> {
-            static_assert(id_helper::ClassNotInList<CSTATE>::value, "Event unknown");
+            static_assert(id_helper::ClassNotInList<CSTATE>::value, "Object not in list");
             typedef typename std::integral_constant<uint16_t, 0xFFFF> type;
         };
         template <uint16_t IDX, typename VoidBehaviour>
