@@ -26,7 +26,7 @@
 
 
 SystemBase::SystemBase(HWAL *_hwal)
-    : hwal(_hwal), eventBuffer{}, doLogTransitions(true), doLogRaiseEvent(false),
+    : hwal(_hwal), eventBuffer{}, doLogTransitions(true), doLogRaiseEvent(true),
         doLogEnterState(true), doLogExitState(true), doLogEventFromBuffer(false) {
     eventBufferReadPos = 0;
     eventBufferWritePos = 0;
@@ -171,6 +171,10 @@ void SystemBase::raiseEventIdByIds(uint16_t eventId, uint16_t senderStateId, boo
     eventBufferWritePos &= (1<<EVENT_BUFFER_SIZE_V) - 1;
     raiseEvent_MutexUnLock();
 }
+void SystemBase::clearEvents() {
+    eventBufferWritePos = 0; eventBufferReadPos = 0;
+}
+
 
 void SystemBase::executeTransition(uint16_t startState, uint16_t destState, uint16_t senderState, uint16_t event,
                                    bool blockActivatedStates) {
@@ -240,15 +244,15 @@ void SystemBase::activateStateFullByIds(uint16_t curStateId, uint16_t destStateI
             bool hasInitialEventTransition = false;
             bool forceRaiseInitial = getStateById(curStateId)->emitInitialEventOnEnter();
             if(!forceRaiseInitial)
-            for(uint16_t tii=0; tii!=transitionsNumberPerState[curStateId]; tii++) {
-                TransitionImpl *tics = &(transitions[curStateId][tii]);
-                if(tics->eventId == ID_E_Initial) {
-                    hasInitialEventTransition = true;
-                    break;
+                for(uint16_t tii=0; tii!=transitionsNumberPerState[curStateId]; tii++) {
+                    TransitionImpl *tics = &(transitions[curStateId][tii]);
+                    if(tics->eventId == ID_E_Initial) {
+                        hasInitialEventTransition = true;
+                        break;
+                    }
                 }
-            }
             if(hasInitialEventTransition || forceRaiseInitial)
-                raiseEventIdByIds(ID_E_Initial, curStateId, LOG_INITIAL_EVENT);
+                raiseEventIdByIds(ID_E_Initial, curStateId, !LOG_INITIAL_EVENT);
         }
     }
 }

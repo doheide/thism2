@@ -404,33 +404,6 @@ public:
     virtual bool emitInitialEventOnEnter() = 0;
 };
 
-//namespace sys_details {
-//    namespace helper {
-//        template <typename ...>
-//        struct StatePtrList_impl;
-//        template <typename ...STATE, typename ...STATEs, typename ...PLEs>
-//        struct StatePtrList_impl<Collector<STATE, STATEs...>, Collector<PLEs...>> {
-//        };
-//    }
-//
-//}
-
-#define StateSetup_wwww(STATECLASSNAME, DESCRIPTION) \
-public: \
-typedef STATECLASSNAME ThisState;                    \
-virtual bool emitInitialEventOnEnter() final { return details::emitInitialEventOnEnter(); } \
-void dummy() { static_assert(std::is_same<std::remove_reference<decltype(this)>::type, STATECLASSNAME*>::value, \
-    "CTC: state_setup(): First argument has to be the type of the parent class."); } \
-static ThisState *getInstance() { \
-    static ThisState inst; \
-    return &inst; } \
-static StateBase *getInstanceBase() { \
-    return getInstance(); } \
-template<typename T> void internalTransition(T) { \
-    std::cout << "No internalTransition" << std::endl; \
-} \
-private: \
-STATECLASSNAME() : StateBase(#STATECLASSNAME, DESCRIPTION)
 
 #ifdef __noNames
 #define StateSetup(STATECLASSNAME, DESCRIPTION) \
@@ -618,6 +591,7 @@ public:
 
     /// \brief Activate inital states
     void initialSetup();
+    void clearEvents();
 
 protected:
     virtual bool checkEventProtection(sys_detail::EventBuffer &cevent, uint16_t cStateId);
