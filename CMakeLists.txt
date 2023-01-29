@@ -28,9 +28,11 @@ target_link_libraries (example_exe LINK_PUBLIC libthism2)
 # ***********************************************************************************************
 # diagrams
 find_package(Qt5Core)
-add_executable(diagrams example/src/sm_sys.cpp main/src/make_diagrams.cpp)
-target_include_directories(diagrams PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/main/include example/src)
-target_link_libraries (diagrams LINK_PUBLIC libthism2 Qt5::Core)
+if (DEFINED Qt5Core)
+    add_executable(diagrams example/src/sm_sys.cpp main/src/make_diagrams.cpp)
+    target_include_directories(diagrams PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/main/include example/src)
+    target_link_libraries (diagrams LINK_PUBLIC libthism2 Qt5::Core)
+endif ()
 
 
 # ***********************************************************************************************
