@@ -55,7 +55,7 @@
 
 // *****************************************************************
 // *****************************************************************
-#define EVENT_BUFFER_SIZE_V 4
+#define EVENT_BUFFER_SIZE_V 6
 #define STATE_NESTING_LEVEL_MAX 30
 
 #define __useNames
@@ -429,6 +429,10 @@ STATECLASSNAME() : StateBase(#STATECLASSNAME, DESCRIPTION)
 #endif
 
 #if defined(__useNames) && defined(__useDescription)
+#define StateDefine(STATECLASSNAME, DESCRIPTION) \
+struct STATECLASSNAME : public StateBase {       \
+StateSetup(STATECLASSNAME, DESCRIPTION)
+
 #define StateSetup(STATECLASSNAME, DESCRIPTION) \
 StateSetupWLL(STATECLASSNAME, DESCRIPTION, HWAL_Log::Always)
 
@@ -549,6 +553,8 @@ public:
 
     virtual const char *getEventName(uint16_t id) = 0;
 
+    virtual bool getLogForStateInStateMachine(uint16_t stateId) = 0;
+
     const char *getStateName(uint16_t id) {
         if(id==SystemBase::ID_S_Undefined)
             return "S_Undefined";
@@ -607,16 +613,17 @@ protected:
 
     virtual StateBase *getStateById(uint16_t /*id*/) { return 0; } // @todo make abstract?
 
-    void raiseEventIdByIds(uint16_t eventId, uint16_t senderStateId, bool preventLog=false, EventPayloadBase *payload=0);
+    void raiseEventIdByIds(uint16_t eventId, uint16_t senderStateId, bool preventLog=false, EventPayloadBase *payload=0,
+                           bool do_filter=false);
 
     void executeTransition(uint16_t startState, uint16_t destState, uint16_t senderState, uint16_t event,
-                           bool blockActivatedStates);
+                           bool blockActivatedStates, bool doLog);
     void activateStateFullByIds(uint16_t curStateId, uint16_t destStateId, uint16_t senderStateId, uint16_t event,
-                                bool blockActivatedStates, bool initMode=false);
+                                bool blockActivatedStates, bool doLog, bool initMode=false);
 
-    void deactivateStateFullById(uint16_t curStateId);
+    void deactivateStateFullById(uint16_t curStateId, bool doLog);
 
-    void activateStateAndParentsByIds(uint16_t destState, uint16_t senderState, uint16_t event,
+    void activateStateAndParentsByIds(uint16_t destState, uint16_t senderState, uint16_t event, bool doLog,
                                       bool blockActivatedStates=true, bool initMode=false);
 
     virtual void raiseEvent_MutexLockOrWait() {}
@@ -716,11 +723,9 @@ namespace sys_detail {
             TransitionsT transitions;
         };
 
-        template<typename ...>
-        struct StateListImpl;
+        template<typename ...> struct StateListImpl;
         template<typename STATELIST, typename ... STATEs>
-        struct StateListImpl<STATELIST, Collector<STATEs ...>> : StateListElement<STATELIST, STATEs> ... {
-        };
+        struct StateListImpl<STATELIST, Collector<STATEs ...>> : StateListElement<STATELIST, STATEs> ... { };
 
 //        template <typename ...>
 //        struct StateId_Impl;
@@ -896,8 +901,12 @@ namespace statemachine_detail {
 struct SMName : StateMachine<__VA_ARGS__> { }
 #endif
 #ifdef __useNames
-#define Make_StateMachine(SMName, ...) \
-    struct SMName : StateMachine<__VA_ARGS__> { static const char *name() { return #SMName; }}
+#define Make_StateMachine(SMName, _doLog, ...) \
+    struct SMName : StateMachine<__VA_ARGS__> { \
+        static const char *name() { return #SMName; } \
+        SMName() { doLog = _doLog; } \
+        bool doLog; \
+    }
 #endif
 
 template< typename ... STATEs>
@@ -913,8 +922,91 @@ struct StateMachine {
     static_assert(statemachine_detail::CheckStateTransitions_State<StatesT, void>::value, "");
 };
 
+namespace sm_helper {
+    template<typename ...>
+    struct StateMachineImpl;
+    template<typename ALLSTATESLIST, typename ... SMs>
+    struct StateMachineImpl<ALLSTATESLIST, Collector<SMs ...>> : SMs ... { };
 
+    // ****
+    template <typename ...> struct print_sms;
+    template <typename SM, typename ...SMs, typename SMsType>
+    struct print_sms<Collector<SM, SMs...>, SMsType> {
+        static void print(SMsType *sms) {
+            SM* sm = static_cast<SM*>(sms);
+            printf("  > %s: doLog=%d\n", sm->name(), sm->doLog);
+            print_sms<Collector<SMs...>, SMsType>::print(sms);
+        }
+    };
+    template <typename SMsType>
+    struct print_sms<Collector<>, SMsType> {
+        static void print(SMsType *sms) {}
+    };
+
+    // ****
+    template <typename ...> struct state_in_sms;
+    template <typename CSTATE, typename STATE, typename ...STATEs, typename SM, typename ...SMs>
+    struct state_in_sms<CSTATE, Collector<STATE, STATEs...>, Collector<SM, SMs...>> {
+        typedef typename state_in_sms<CSTATE, Collector<STATEs...>, Collector<SM, SMs...>>::type type;
+    };
+    template <typename CSTATE, typename ...STATEs, typename SM, typename ...SMs>
+    struct state_in_sms<CSTATE, Collector<CSTATE, STATEs...>, Collector<SM, SMs...>> {
+        typedef SM type;
+    };
+    template <typename CSTATE, typename SM, typename CSM, typename ...SMs>
+    struct state_in_sms<CSTATE, Collector<>, Collector<SM, CSM, SMs...>> {
+        typedef typename state_in_sms<CSTATE, typename CSM::StatesT, Collector<CSM, SMs...>>::type type;
+    };
+    template <typename CSTATE> struct state_in_sms_not_found{ enum { value = false }; };
+    template <typename CSTATE, typename SM>
+    struct state_in_sms<CSTATE, Collector<>, Collector<SM>> {
+        static_assert(state_in_sms_not_found<CSTATE>::value, "Event not found ");
+        typedef SM type;
+    };
+
+    template <typename ...> struct state_in_sms_start;
+    template <typename CSTATE, typename SM, typename ...SMs>
+    struct state_in_sms_start<CSTATE, Collector<SM, SMs...>> {
+        typedef typename state_in_sms<CSTATE, typename SM::StatesT, Collector<SM, SMs...>>::type type;
+    };
+
+//    template <typename ...> struct state_in_sms_get_log;
+//    template <typename CSTATE, typename StatesCollector, typename SMCollector>
+//    struct state_in_sms_get_log<CSTATE, StatesCollector, SMCollector> {
+//        static bool get(sm_helper::StateMachineImpl<StatesCollector, SMCollector> *sms) {
+//            typedef typename state_in_sms<CSTATE, StatesCollector>::type ltype;
+//            return static_cast<ltype>(sms)->doLog;
+//        }
+//    };
+    template <typename ...> struct state_in_sms_get_all;
+    template <typename CSTATE, typename ...STATEs, typename StatesCollector, typename SMCollector>
+    struct state_in_sms_get_all<Collector<CSTATE, STATEs...>, StatesCollector, SMCollector> {
+        static bool get(uint16_t stateId, sm_helper::StateMachineImpl<StatesCollector, SMCollector> *sms) {
+            typedef typename sys_detail::helper::Id_Impl<CSTATE, std::integral_constant<uint16_t, 0>, StatesCollector,
+                    sys_detail::helper::id_helper::ReturnFFFFOnVoid>::type Id_local;
+            if(stateId == Id_local::value) {
+                typedef typename state_in_sms_start<CSTATE, SMCollector>::type CUR_SM;
+                static_assert(detail::is_one_of_collection<CUR_SM, SMCollector>::value, "CTC getStateMachine<>(): StateMachine is not part of systems statemachine list.");
+                CUR_SM* sm = static_cast<CUR_SM*>(sms);
+                return sm->doLog;
+            }
+            return state_in_sms_get_all<Collector<STATEs...>, StatesCollector, SMCollector>::get(stateId, sms);
+        }
+    };
+    template <typename StatesCollector, typename SMCollector>
+    struct state_in_sms_get_all<Collector<>, StatesCollector, SMCollector> {
+        static bool get(uint16_t stateId, sm_helper::StateMachineImpl<StatesCollector, SMCollector> *sms) {
+            return true;
+        }
+    };
+
+}
 // *****
+#define MAKE_TIMER(TNAME, EVENT, DEFAULTTIME, ...) \
+struct TNAME : SMTimer<Collector<__VA_ARGS__>, EVENT, DEFAULTTIME> { \
+    typedef Collector<__VA_ARGS__> TimerStates; typedef EVENT TimerEvent; \
+    static constexpr uint32_t value = DEFAULTTIME; };
+
 namespace sys_detail {
     struct SMTimer_Base { };
 }
@@ -1009,6 +1101,7 @@ public:
 //    }
 
 protected:
+    sm_helper::StateMachineImpl<StatesT, Collector<SMs...>> sms;
     sys_detail::StateList<EventListT, StatesT, StatesWithInitialFlagT> statesImpl;
     uint16_t _stateListTemp[ MaxStateLevelC_T::value ]{};
 
@@ -1051,20 +1144,20 @@ public:
 
     StateBase *getStateById(uint16_t id) { return statesImpl.getById(id); }
     template<typename STATE> STATE *getState() {
-        static_assert(detail::is_one_of_collection<STATE, StatesT>::value, "CTC raiseEvent<>(): State is not part of systems state list.");
+        static_assert(detail::is_one_of_collection<STATE, StatesT>::value, "CTC getState<>(): State is not part of systems state list.");
         return statesImpl.template get<STATE>();
     }
     template<typename STATE> STATE &getStateRef() {
-        static_assert(detail::is_one_of_collection<STATE, StatesT>::value, "CTC raiseEvent<>(): State is not part of systems state list.");
+        static_assert(detail::is_one_of_collection<STATE, StatesT>::value, "CTC getStateRef<>(): State is not part of systems state list.");
         return statesImpl.template getRef<STATE>();
     }
     template<typename STATE> StateBase *getStateBase() {
-        static_assert(detail::is_one_of_collection<STATE, StatesT>::value, "CTC raiseEvent<>(): State is not part of systems state list.");
+        static_assert(detail::is_one_of_collection<STATE, StatesT>::value, "CTC getStateBase<>(): State is not part of systems state list.");
         return statesImpl.template getBase<STATE>();
     }
 
     template<typename STATE> bool isStateActive() {
-        static_assert(detail::is_one_of_collection<STATE, StatesT>::value, "CTC raiseEvent<>(): State is not part of systems state list.");
+        static_assert(detail::is_one_of_collection<STATE, StatesT>::value, "CTC isStateActive<>(): State is not part of systems state list.");
         return isStateActiveBI(StateId<STATE>::value);
     }
 //    template<typename STATE> bool hasInitialTransition()
@@ -1116,6 +1209,17 @@ public:
 
     HWAL_T *hwaltGet() {
         return hwalt;
+    }
+
+    template<typename SM> SM *getStateMachine() {
+        static_assert(detail::is_one_of_collection<SM, SMsT>::value, "CTC getStateMachine<>(): StateMachine is not part of systems statemachine list.");
+        return static_cast<SM*>(&sms);
+    }
+    virtual bool getLogForStateInStateMachine(uint16_t stateId) final {
+        return sm_helper::state_in_sms_get_all<StatesT, StatesT, SMsT>::get(stateId, &sms);
+    }
+    void print_sm_do_logs() {
+        sm_helper::print_sms<SMsT, sm_helper::StateMachineImpl<StatesT, Collector<SMs...>>>::print(&sms);
     }
 };
 

@@ -126,9 +126,9 @@ StateSetup(S_Blink_Off, "Blink off state.") { }
 
 
 //struct SM_State;
-Make_StateMachine(SM_State, MarkInitialState<S_Off>, S_On, S_Blink, S_Blink_Off, S_Blink_On);
+Make_StateMachine(SM_State, true, MarkInitialState<S_Off>, S_On, S_Blink, S_Blink_Off, S_Blink_On);
 // struct SM_LED;
-Make_StateMachine(SM_LED, MarkInitialState<S_LED_Off>, S_LED_On);
+Make_StateMachine(SM_LED, true, MarkInitialState<S_LED_Off>, S_LED_On);
 
 typedef SMTimer<Collector<S_Blink_On, S_Blink_Off>> SMT_Main;
 typedef SMTimerListTmpl<EventList, SMT_Main> SMTimerList;
