@@ -21,16 +21,16 @@ int main() {
         smsys->sysTickCallback();
 
         if(smsys->sysTimeGet() == 3) {
-            hwal.logger_get()->logf(HWAL_Log::Info, "* Switching LED on");
-            smsys->raiseEvent<E_On>();
+            hwal.logger_get()->logf(HWAL_Log::Info, HWAL_Log::NoColor, "* Switching LED on");
+            smsys->raiseEvent_noSender<E_On>();
         }
         else if(smsys->sysTimeGet() == 5) {
-            hwal.logger_get()->logf(HWAL_Log::Info, "* Switching LED blink on");
-            smsys->raiseEvent<E_On_Blink>();
+            hwal.logger_get()->logf(HWAL_Log::Info, HWAL_Log::NoColor,"* Switching LED blink on");
+            smsys->raiseEvent_noSender<E_On_Blink>();
         }
         else if(smsys->sysTimeGet() == 15) {
-            hwal.logger_get()->logf(HWAL_Log::Info, "* Switching LED off");
-            smsys->raiseEvent<E_Off>();
+            hwal.logger_get()->logf(HWAL_Log::Info, HWAL_Log::NoColor,"* Switching LED off");
+            smsys->raiseEvent_noSender<E_Off>();
         }
 
     }

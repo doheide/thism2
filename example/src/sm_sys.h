@@ -56,7 +56,7 @@ struct S_Blink; struct S_Blink_Off; struct S_Blink_On;
 struct S_LED_Off : public StateBase {
     StateSetup(S_LED_Off, "LED is off.") { }
 
-    typedef StateDetails< void, TransitionListT<TransitionT<E_LED_on, S_LED_On>> > details;
+    typedef StateDetails< void, false, TransitionListT<TransitionT<E_LED_on, S_LED_On>> > details;
 
     void onEnter(uint16_t senderStateId, uint16_t event, bool isDestState, bool reentering) final;
 };
@@ -64,7 +64,7 @@ struct S_LED_Off : public StateBase {
 struct S_LED_On : public StateBase {
     StateSetup(S_LED_On, "LED is on.") { }
 
-    typedef StateDetails< void, TransitionListT<TransitionT<E_LED_off, S_LED_Off>> > details;
+    typedef StateDetails< void, false, TransitionListT<TransitionT<E_LED_off, S_LED_Off>> > details;
 
     void onEnter(uint16_t senderStateId, uint16_t event, bool isDestState, bool reentering) final;
 };
@@ -75,7 +75,7 @@ struct S_LED_On : public StateBase {
 struct S_Off : public StateBase {
     StateSetup(S_Off, "Off state.") { }
 
-    typedef StateDetails< void, TransitionListT<
+    typedef StateDetails< void, false, TransitionListT<
             TransitionT<E_On, S_On>, TransitionT<E_On_Blink, S_Blink_On>
     > > details;
 
@@ -85,7 +85,7 @@ struct S_Off : public StateBase {
 struct S_On : public StateBase {
     StateSetup(S_On, "On state.") { }
 
-    typedef StateDetails< void, TransitionListT<
+    typedef StateDetails< void, false, TransitionListT<
         TransitionT<E_Off, S_Off>, // TransitionT<E_Off_Blink, S_Off>,
         TransitionT<E_On_Blink, S_Blink_Off>
     > > details;
@@ -96,7 +96,7 @@ struct S_On : public StateBase {
 struct S_Blink : public StateBase {
 StateSetup(S_Blink, "Blink off state.") { }
 
-    typedef StateDetails< void, TransitionListT<
+    typedef StateDetails< void, false, TransitionListT<
             //TransitionT<E_Off_Blink, S_Off>,
             TransitionT<E_Off, S_Off>,
             TransitionT<E_On, S_On>
@@ -107,7 +107,7 @@ StateSetup(S_Blink, "Blink off state.") { }
 struct S_Blink_On : public StateBase {
 StateSetup(S_Blink_On, "Blink off state.") { }
 
-    typedef StateDetails<S_Blink, TransitionListT<
+    typedef StateDetails<S_Blink, false, TransitionListT<
             TransitionT<E_Timer, S_Blink_Off>
     > > details;
 
@@ -117,7 +117,7 @@ StateSetup(S_Blink_On, "Blink off state.") { }
 struct S_Blink_Off : public StateBase {
 StateSetup(S_Blink_Off, "Blink off state.") { }
 
-    typedef StateDetails<S_Blink, TransitionListT<
+    typedef StateDetails<S_Blink, false, TransitionListT<
             TransitionT<E_Timer, S_Blink_On>
     > > details;
 
