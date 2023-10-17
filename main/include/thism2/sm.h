@@ -285,7 +285,23 @@ namespace event_details {
     };
 }
 
-struct E_FatalError; MAKE_EVENT(E_FatalError, 0);
+
+struct EventStringPayload : EventPayloadBase {
+    char *str;
+    EventStringPayload(const char *str_in) {
+        int len;
+        for(len=0; len < 300 && str_in[len] != 0; len++);
+        len += 1;
+        str = new char[len];
+        for(int i=0; i!=len; i++)
+            str[i] = str_in[i];
+        str[len-1] = 0;
+    }
+    ~EventStringPayload() {
+        delete [] str;
+    }
+};
+struct E_FatalError; MAKE_EVENT_W_PAYLOAD(E_FatalError, 0, EventStringPayload);
 struct E_Initial; MAKE_EVENT(E_Initial, EOPT_ONLY_FROM_SELF);
 struct E_Timer; MAKE_EVENT(E_Timer, EOPT_ONLY_FROM_SELF);
 
@@ -382,10 +398,10 @@ protected:
     StateBase& operator=(const StateBase&);      // Prevent assignment
 
 public:
-    virtual void internalTransition(uint16_t event, uint16_t sender) { };
-    virtual void internalTransition_withPayload(uint16_t event, uint16_t sender, void *payload) { };
-    virtual void onEnter(uint16_t senderStateId, uint16_t event, bool isDestState, bool reentering) { };
-    virtual void onExit(bool reentering) { }
+    virtual void internalTransition(uint16_t event, uint16_t sender, void *payload) { };
+    //virtual void internalTransition_withPayload(uint16_t event, uint16_t sender, void *payload) { };
+    virtual void onEnter(uint16_t senderStateId, uint16_t event, bool isDestState, bool reentering, void *payload) { };
+    virtual void onExit(uint16_t event) { }
 #ifdef __useNames
     virtual const char * name() = 0; //{ return ""; } // @todo make abstract
 #endif
@@ -616,21 +632,30 @@ protected:
     void raiseEventIdByIds(uint16_t eventId, uint16_t senderStateId, bool preventLog=false, EventPayloadBase *payload=0,
                            bool do_filter=false);
 
-    void executeTransition(uint16_t startState, uint16_t destState, uint16_t senderState, uint16_t event,
+    void executeTransition(uint16_t startState, uint16_t destState, sys_detail::EventBuffer &cevent,
                            bool blockActivatedStates, bool doLog);
-    void activateStateFullByIds(uint16_t curStateId, uint16_t destStateId, uint16_t senderStateId, uint16_t event,
+    void activateStateFullByIds(uint16_t curStateId, uint16_t destStateId, sys_detail::EventBuffer &cevent,
                                 bool blockActivatedStates, bool doLog, bool initMode=false);
 
-    void deactivateStateFullById(uint16_t curStateId, bool doLog);
+//    void executeTransition(uint16_t startState, uint16_t destState, uint16_t senderState, uint16_t event,
+//                           bool blockActivatedStates, bool doLog);
+//    void activateStateFullByIds(uint16_t curStateId, uint16_t destStateId, uint16_t senderStateId, uint16_t event,
+//                                bool blockActivatedStates, bool doLog, bool initMode=false);
 
-    void activateStateAndParentsByIds(uint16_t destState, uint16_t senderState, uint16_t event, bool doLog,
+    void deactivateStateFullById(uint16_t curStateId, uint16_t event, bool doLog);
+
+    void activateStateAndParentsByIds(uint16_t destState, sys_detail::EventBuffer &cevent, bool doLog,
                                       bool blockActivatedStates=true, bool initMode=false);
+//    void activateStateAndParentsByIds(uint16_t destState, uint16_t senderState, uint16_t event, bool doLog,
+//                                      bool blockActivatedStates=true, bool initMode=false);
 
-    virtual void raiseEvent_MutexLockOrWait() {}
-    virtual void raiseEvent_MutexUnLock() {}
+    virtual void eventProcess_MutexLockOrWait() { hwal->eventProcess_MutexLockOrWait(); }
+    virtual void eventProcess_MutexUnLock() { hwal->eventProcess_MutexUnLock(); }
 
 public:
     bool checkIfStateIsChildOfOrSame(uint16_t parentState, uint16_t childState);
+
+    virtual bool doPrintEvent(uint16_t eventId) = 0;
 };
 
 // **********************************************************************************
@@ -1051,8 +1076,8 @@ template<typename ...>
 class SMSystem;
 
 //template<typename LALA, typename ...SMs>
-template<typename EVL, typename ...SMs, typename SMTimerList_, typename HWAL_T>
-class SMSystem<EVL, Collector<SMs...>, SMTimerList_, HWAL_T> : public SystemBase {
+template<typename EVL, typename ...SMs, typename SMTimerList_, typename HWAL_T, typename ...EventsNotToPrint>
+class SMSystem<EVL, Collector<SMs...>, SMTimerList_, HWAL_T, Collector<EventsNotToPrint...>> : public SystemBase {
 
 public:
     typedef SMSystem<SMs...> This;
@@ -1091,31 +1116,23 @@ public:
         return event_details::getEventName<EventListT>(id);
     }
 
-//    virtual void logEventName(uint16_t id) {
-//#ifdef __useNames
-//        baha->log(event_details::getEventName<EventListT>(id));
-//#else
-//        baha->log("E_");
-//        baha->log(id);
-//#endif
-//    }
 
 protected:
     sm_helper::StateMachineImpl<StatesT, Collector<SMs...>> sms;
     sys_detail::StateList<EventListT, StatesT, StatesWithInitialFlagT> statesImpl;
     uint16_t _stateListTemp[ MaxStateLevelC_T::value ]{};
 
+    typedef std::integral_constant<uint16_t, sizeof...(EventsNotToPrint)> numberOfEventsNotToPrint;
+    uint16_t eventsNotToPrint[ numberOfEventsNotToPrint::value ]{};
+
     EventListT eventList;
     SMTimerListT smTimerList;
 
     HWAL_T *hwalt;
 
-//    BAHA_T *baha;
-
 public:
-    SMSystem(HWAL_T *_hwalt) : SystemBase(_hwalt), statesImpl(), hwalt(_hwalt) {
-//        baha->sysSet(this);
-
+    SMSystem(HWAL_T *_hwalt) :
+        SystemBase(_hwalt), statesImpl(), eventsNotToPrint{EventId<EventsNotToPrint>() ...}, hwalt(_hwalt) {
         numberOfStates = numberOfStatesT::value;
 
         stateListTemp = _stateListTemp;
@@ -1168,7 +1185,7 @@ public:
         static_assert(detail::is_one_of_collection<STATE, StatesT>::value, "CTC raiseEvent<>(): State is not part of systems state list.");
         raiseEventIdByIds(EventListT::template EventId<EVENT>::value, StateId<STATE>::value, false, payload);
     }
-    template<typename EVENT> void raiseEvent_noSender(typename EVENT::payload_type *payload=0) {
+    template<typename EVENT> void raiseEvent_noSender(typename EVENT::payload_type *payload=0, bool preventLog=true) {
         static_assert(detail::is_one_of_collection<EVENT, typename EventListT::AllEvents::type>::value, "CTC raiseEvent<>(): Event is not part of systems event list.");
         raiseEventIdByIds(EventListT::template EventId<EVENT>::value, ID_S_Undefined, false, payload);
     }
@@ -1220,6 +1237,13 @@ public:
     }
     void print_sm_do_logs() {
         sm_helper::print_sms<SMsT, sm_helper::StateMachineImpl<StatesT, Collector<SMs...>>>::print(&sms);
+    }
+
+    bool doPrintEvent(uint16_t eventId) final {
+        for(uint16_t i=0; i!=numberOfEventsNotToPrint::value; i++)
+            if(eventsNotToPrint[i] == eventId)
+                return false;
+        return true;
     }
 };
 

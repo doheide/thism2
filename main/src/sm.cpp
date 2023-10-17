@@ -50,12 +50,14 @@ void SystemBase::processEvents() {
 //        lol->logf(HWAL_Log::Details, "pe: transitionsNumberPerState[%d] = %d",
 //                  csi, transitionsNumberPerState[csi]);
 
-    raiseEvent_MutexLockOrWait();
+    eventProcess_MutexLockOrWait();
     uint8_t readUntil = eventBufferWritePos;
-    raiseEvent_MutexUnLock();
+    eventProcess_MutexUnLock();
     if(eventBufferReadPos == readUntil)
         return;
-    int log_num = 0;
+
+    // ***
+/*    int log_num = 0;
     for(int ebrp = eventBufferReadPos;  ebrp!= readUntil; ebrp=(ebrp+1)&((1<<EVENT_BUFFER_SIZE_V)-1)) {
         sys_detail::EventBuffer &cevent = eventBuffer[ebrp];
         if(this->doLogEventFromBuffer && this->getLogForStateInStateMachine(cevent.sender) &&
@@ -69,20 +71,20 @@ void SystemBase::processEvents() {
                         log_num++;
                 }
     }
-
     if(log_num>0)
         lol->logf(HWAL_Log::Debug,HWAL_Log::Color::Pink, "processEvents() - new events s/e: %d/%d.", eventBufferReadPos, readUntil);
+*/
 
     for(; eventBufferReadPos != readUntil; eventBufferReadPos=(eventBufferReadPos+1)&((1<<EVENT_BUFFER_SIZE_V)-1)) {
     //for(uint8_t i=eventBufferReadPos; i != readUntil; i=(i+1)&((1<<EVENT_BUFFER_SIZE_V)-1)) {
         sys_detail::EventBuffer &cevent = eventBuffer[eventBufferReadPos];
 
-        if(this->doLogEventFromBuffer && (strcmp(getEventName(cevent.event), "E_Timer")!=0)) {
+/*        if(this->doLogEventFromBuffer) { // && (strcmp(getEventName(cevent.event), "E_Timer")!=0)) {
             if (this->getLogForStateInStateMachine(cevent.sender))
                 lol->logf(HWAL_Log::Debug, HWAL_Log::Pink, "!! EBuffer %s (%d) | %s (%d) - rp: %d/%d\n",
                           getEventName(cevent.event), cevent.event, getStateName(cevent.sender), cevent.sender,
                           eventBufferReadPos, readUntil);
-        }
+        }*/
 
         for(uint16_t level = maxLevel; level!=0; level--)
             for(uint16_t csi=0; csi!=numberOfStates; csi++)
@@ -100,11 +102,16 @@ void SystemBase::processEvents() {
                         if(cevent.event == tics->eventId) {
                             if(checkEventProtection(cevent, csi)) {
                                 uint16_t &cs = tics->stateId;
-                                executeTransition(csi, cs, cevent.sender, cevent.event, true, doLogT);
+
+                                // @todo Describe arguments: What does block activated States mean?
+                                executeTransition(csi, cs, cevent, true, doLogT);
+                                //executeTransition(csi, cs, cevent.sender, cevent.event, true, doLogT);
                             } else {
                                 if(doLogT)
-                                    lol->logf(HWAL_Log::Debug,HWAL_Log::Color::Pink, "Transition %s (%d) -> %s (%d) not executed because of protection.",
-                                              getStateName(csi), csi, getStateName(tics->stateId), tics->stateId);
+                                    lol->logf(HWAL_Log::Debug,HWAL_Log::Color::Pink,
+                                              "Transition %s (%d) -> %s (%d) (because of %s) not executed because of protection.",
+                                              getStateName(csi), csi, getStateName(tics->stateId),
+                                              tics->stateId, getEventName(cevent.event));
                             }
                         }
                     }
@@ -112,13 +119,15 @@ void SystemBase::processEvents() {
                     if(isStateActiveBI(csi) && !isStateBlockedBI(csi)) {
                         if(checkEventProtection(cevent, csi)) {
                             StateBase *sb = getStateById(csi);
-                            sb->internalTransition(cevent.event, cevent.sender);
-                            sb->internalTransition_withPayload(cevent.event, cevent.sender, cevent.payload);
+                            sb->internalTransition(cevent.event, cevent.sender, cevent.payload);
+                            //sb->internalTransition_withPayload(cevent.event, cevent.sender, cevent.payload);
                         }
                     }
         }
-        if(cevent.payload!=0)
+        if(cevent.payload != 0) {
             delete cevent.payload;
+            cevent.payload = 0;
+        }
     }
 }
 
@@ -187,43 +196,50 @@ void SystemBase::sysTickCallback() {
 
 void SystemBase::raiseEventIdByIds(uint16_t eventId, uint16_t senderStateId, bool preventLog, EventPayloadBase *payload,
                                    bool do_filter) {
+    eventProcess_MutexLockOrWait();
     if(do_filter) {
         int c_read_pos = eventBufferReadPos;
         while(c_read_pos != eventBufferWritePos) {
             auto &ce = eventBuffer[c_read_pos];
-            if(ce.event==eventId && ce.sender == senderStateId && ce.payload == payload)
+            if(ce.event==eventId && ce.sender == senderStateId && ce.payload == payload) {
+                eventProcess_MutexUnLock();
                 return;
+            }
             c_read_pos++; c_read_pos &= (1<<EVENT_BUFFER_SIZE_V) - 1;
         }
     }
 
-    raiseEvent_MutexLockOrWait();
     eventBuffer[eventBufferWritePos++] = {eventId, senderStateId, payload };
     eventBufferWritePos &= (1<<EVENT_BUFFER_SIZE_V) - 1;
     if(eventBufferWritePos==eventBufferReadPos) {
-        eventBufferWritePos = eventBufferReadPos;
-        eventBuffer[eventBufferWritePos++] = {ID_E_FatalError, ID_S_Undefined, 0 };
-        eventBufferWritePos &= (1<<EVENT_BUFFER_SIZE_V) - 1;
+        eventBufferReadPos = 0;
+        eventBufferWritePos = 0;
+        eventBuffer[eventBufferWritePos++] = {ID_E_FatalError, ID_S_Undefined, new E_FatalError::payload_type("EventRingBuffer full") };
     }
-    raiseEvent_MutexUnLock();
+    eventProcess_MutexUnLock();
 
     if(!preventLog) {
         HWAL_Log *lol = this->hwal->logger_get();
         if(this->doLogRaiseEvent) {
-            if(this->getLogForStateInStateMachine(senderStateId))
+            if(this->getLogForStateInStateMachine(senderStateId) && this->doPrintEvent(eventId))
                 lol->logf(HWAL_Log::Info, HWAL_Log::IGreen, "!! R %s | %s (rp / wp: %d / %d)",
                           getEventName(eventId), getStateName(senderStateId), eventBufferReadPos, eventBufferWritePos);
         }
     }
 }
 void SystemBase::clearEvents() {
+    HWAL_Log *lol = this->hwal->logger_get();
+    lol->logf(HWAL_Log::Warning, HWAL_Log::IGreen, "Clear events called");
     eventBufferWritePos = 0; eventBufferReadPos = 0;
 }
 
 
-void SystemBase::executeTransition(uint16_t startState, uint16_t destState, uint16_t senderState, uint16_t event,
+void SystemBase::executeTransition(uint16_t startState, uint16_t destState, sys_detail::EventBuffer &cevent,
                                    bool blockActivatedStates, bool doLog) {
     HWAL_Log *lol = this->hwal->logger_get();
+
+    uint16_t senderState = cevent.sender;
+    uint16_t event = cevent.event;
 
     if(!isStateActiveBI(startState)) {
         // @todo Add error message
@@ -256,22 +272,26 @@ void SystemBase::executeTransition(uint16_t startState, uint16_t destState, uint
 
     // make list of states to disable
     while ((lastActiveChild != ID_S_Undefined) && (lastActiveChild != commonState)) {
-        deactivateStateFullById(lastActiveChild, doLog);
+        deactivateStateFullById(lastActiveChild, cevent.event, doLog);
         lastActiveChild = getParentIdBI(lastActiveChild);
     }
     // activate from common state to destState
-    activateStateAndParentsByIds(destState, senderState, event, doLog, blockActivatedStates);
+    activateStateAndParentsByIds(destState, cevent, doLog, blockActivatedStates);
+    //activateStateAndParentsByIds(destState, senderState, event, doLog, blockActivatedStates);
 }
 
-void SystemBase::activateStateFullByIds(uint16_t curStateId, uint16_t destStateId, uint16_t senderStateId,
-                                        uint16_t event, bool blockActivatedStates, bool doLog, bool initMode) {
+void SystemBase::activateStateFullByIds(uint16_t curStateId, uint16_t destStateId, sys_detail::EventBuffer &cevent,
+                                        bool blockActivatedStates, bool doLog, bool initMode) {
     HWAL_Log *lol = this->hwal->logger_get();
+
+    uint16_t senderStateId = cevent.sender;
+    //uint16_t event = cevent.event;
 
     bool isCStateActive = isStateActiveBI(curStateId);
     if(!isCStateActive || initMode || (isCStateActive && curStateId == destStateId)) {
         if(isCStateActive && !initMode)
             //getStateById(curStateId)->onExit(isCStateActive);
-            deactivateStateFullById(curStateId, doLog);
+            deactivateStateFullById(curStateId, cevent.event, doLog);
 
         if(this->doLogEnterState && doLog)
             lol->logfll(HWAL_Log::Info, getStateById(curStateId)->llstate_get(), HWAL_Log::DGreen,
@@ -283,7 +303,7 @@ void SystemBase::activateStateFullByIds(uint16_t curStateId, uint16_t destStateI
 
         bool isDestState = curStateId == destStateId;
 
-        getStateById(curStateId)->onEnter(senderStateId, event, isDestState, isCStateActive);
+        getStateById(curStateId)->onEnter(senderStateId, cevent.event, isDestState, isCStateActive, cevent.payload);
 
         if(isDestState) {
             bool hasInitialEventTransition = false;
@@ -302,14 +322,14 @@ void SystemBase::activateStateFullByIds(uint16_t curStateId, uint16_t destStateI
     }
 }
 
-void SystemBase::deactivateStateFullById(uint16_t curStateId, bool doLog) {
+void SystemBase::deactivateStateFullById(uint16_t curStateId, uint16_t event, bool doLog) {
     HWAL_Log *lol = this->hwal->logger_get();
 
     if(this->doLogExitState && doLog)
         lol->logfll(HWAL_Log::Info, getStateById(curStateId)->llstate_get(), HWAL_Log::DDRed, "!! EX %s",
                     getStateName(curStateId));
 
-    getStateById(curStateId)->onExit(false);
+    getStateById(curStateId)->onExit(event);
     isStateActiveSetBI(curStateId, false);
 
     for(uint16_t i=0; i!=timerNum; i++) {
@@ -318,10 +338,13 @@ void SystemBase::deactivateStateFullById(uint16_t curStateId, bool doLog) {
     }
 }
 
-void SystemBase::activateStateAndParentsByIds(uint16_t destState, uint16_t senderState, uint16_t event, bool doLog,
+void SystemBase::activateStateAndParentsByIds(uint16_t destState, sys_detail::EventBuffer &cevent, bool doLog,
                                               bool blockActivatedStates, bool initMode) {
     int counter = 0;
     uint16_t cstate = destState;
+
+//    uint16_t senderState = cevent.sender;
+//    uint16_t event = cevent.event;
 
     // make list of all parent state
     do {
@@ -332,8 +355,10 @@ void SystemBase::activateStateAndParentsByIds(uint16_t destState, uint16_t sende
     // activate all states top down
     while(counter>0) {
         counter--;
-        activateStateFullByIds(stateListTemp[counter], destState, senderState,
-                               event, blockActivatedStates, doLog, initMode);
+        activateStateFullByIds(stateListTemp[counter], destState, cevent,
+                               blockActivatedStates, doLog, initMode);
+//        activateStateFullByIds(stateListTemp[counter], destState, senderState,
+//                               event, blockActivatedStates, doLog, initMode);
     }
 }
 
@@ -342,8 +367,9 @@ void SystemBase::initialSetup() {
         this->getStateById(i)->set_hwal(this->hwal);
         if (isStateActiveBI(i)) {
             bool doLog = this->getLogForStateInStateMachine(i);
-            activateStateAndParentsByIds(i, SystemBase::ID_S_Initialization, SystemBase::ID_E_Undefined,
-                                         doLog, false, true);
+            sys_detail::EventBuffer cevent = {
+                    .event = SystemBase::ID_E_Undefined, .sender = SystemBase::ID_S_Initialization, .payload=0};
+            activateStateAndParentsByIds(i, cevent, doLog, false, true);
         }
     }
 }

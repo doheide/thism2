@@ -123,8 +123,11 @@ public:
     // virtual void sleep_ms(uint64_t msecs) = 0;
     virtual void sleep_ticks(uint64_t ticks) = 0;
 
-    virtual void sysTick_MutexLockOrWait() {};
-    virtual void sysTick_MutexUnLock() {};
+    virtual void sysTick_MutexLockOrWait() = 0;
+    virtual void sysTick_MutexUnLock() = 0;
+
+    virtual void eventProcess_MutexLockOrWait() = 0;
+    virtual void eventProcess_MutexUnLock() = 0;
 
     virtual uint64_t get_time() = 0;
     virtual uint8_t write_logger_time(uint64_t) = 0;
