@@ -58,11 +58,29 @@
 #define EVENT_BUFFER_SIZE_V 6
 #define STATE_NESTING_LEVEL_MAX 30
 
-#define __useNames
+//#define __useNames
 //#define __noNames
 
-#define __useDescription
+//#define __useDescription
 //#define __noDescription
+
+#if defined(__useNames) && defined(__noNames)
+#error useNames or nonNames options must not be defined at the same time.
+#endif
+#if !defined(__useNames) && !defined(__noNames)
+#error Either __useNames or __nonNames options have to be defined.
+#endif
+
+#if defined(__useDescription) && defined(__noDescription)
+#error Description options must not be defined at the same time.
+#endif
+#ifndef __useDescription
+#ifndef __noDescription
+#define __noDescription
+#endif
+#endif
+
+
 
 /*
 // *****************************************************************
@@ -286,21 +304,44 @@ namespace event_details {
 }
 
 
-struct EventStringPayload : EventPayloadBase {
-    char *str;
-    EventStringPayload(const char *str_in) {
-        int len;
-        for(len=0; len < 300 && str_in[len] != 0; len++);
-        len += 1;
-        str = new char[len];
-        for(int i=0; i!=len; i++)
-            str[i] = str_in[i];
-        str[len-1] = 0;
+struct EventBinaryPayload : EventPayloadBase {
+    char *data;
+    int data_size;
+
+    explicit EventBinaryPayload(const char *data_in, int32_t data_size=0) : data(nullptr), data_size(0) {
+        if(data_in != nullptr)
+            copy_data(data_in, data_size);
     }
-    ~EventStringPayload() {
-        delete [] str;
+    void copy_data(const char *data_in, int32_t _data_size) {
+        delete_data();
+
+        data_size = _data_size;
+
+        data = new char[data_size];
+        for(int i=0; i!=data_size; i++)
+            data[i] = data_in[i];
+    }
+    virtual ~EventBinaryPayload() {
+        delete_data();
+    }
+    void delete_data() {
+        delete [] data;
+        data = nullptr;
     }
 };
+struct EventStringPayload : EventBinaryPayload {
+    explicit EventStringPayload(const char *str_in) : EventBinaryPayload(nullptr) {
+        int len;
+        for(len=0; len < 300 && str_in[len] != 0; len++);
+
+        len++;
+        copy_data(str_in, len);
+
+        data[len - 1] = 0;
+    }
+    virtual ~EventStringPayload() { }
+};
+
 struct E_FatalError; MAKE_EVENT_W_PAYLOAD(E_FatalError, 0, EventStringPayload);
 struct E_Initial; MAKE_EVENT(E_Initial, EOPT_ONLY_FROM_SELF);
 struct E_Timer; MAKE_EVENT(E_Timer, EOPT_ONLY_FROM_SELF);
@@ -322,7 +363,7 @@ struct EventListAll : event_details::EventBase {
 
 // *****************************************************************
 // *****************************************************************
-class StateBase;
+struct StateBase;
 
 namespace state_details {
     template<typename X>
@@ -373,25 +414,76 @@ struct TransitionImpl {
     uint16_t stateId;
 };
 
+// todo check that ParentT is part of the state machine
 template<typename ParentT_, bool EmitInitialEventOnEnter, typename TransitionsT_>
 struct StateDetails  {
     typedef ParentT_ ParentT;
     typedef TransitionsT_ TransitionsT;
-    static bool emitInitialEventOnEnter() { return EmitInitialEventOnEnter; }
+//    static bool emitInitialEventOnEnter() { return EmitInitialEventOnEnter; }
+    typedef std::integral_constant<bool, EmitInitialEventOnEnter> emitInitialEventOnEnterT;
 };
 
 // *****
 // TO BE REMOVED
 //#include <iostream>
 
-class StateBase {
+struct StateBase {
     HWAL *hwal;
     HWAL_Log::LogLevel llstate;
+    bool emitInitialEventOnEnter;
+
+#ifdef __useNames
+    const char *name; // to be set by derived class
+#endif
+#ifdef __useDescription
+    const char *description; // to be set by derived class
+#endif
 
 protected:
     // Disable copy and moveconstructors, states are not to be copied or moved
-    StateBase(const char */*name*/, const char */*description*/, HWAL_Log::LogLevel _llstate)
-        : hwal(nullptr), llstate(_llstate) { }
+    StateBase(HWAL_Log::LogLevel _llstate)
+            : hwal(nullptr), llstate(_llstate) { }
+    StateBase(const StateBase &) : hwal(nullptr), llstate() { }
+    StateBase(StateBase &&) noexcept : hwal(nullptr), llstate() { }
+    StateBase(const StateBase &&) noexcept : hwal(nullptr), llstate(){ }
+    StateBase& operator=(const StateBase&);      // Prevent assignment
+
+    virtual ~StateBase() {}
+
+public:
+    virtual void internalTransition(uint16_t event, uint16_t sender, void *payload) { };
+    //virtual void internalTransition_withPayload(uint16_t event, uint16_t sender, void *payload) { };
+    virtual void onEnter(uint16_t senderStateId, uint16_t event, bool isDestState, bool reentering, void *payload) { };
+    virtual void onExit(uint16_t event, void *payload) { }
+
+    void logf(HWAL_Log::LogLevel ll, int8_t color, const char *format, ...) {
+        va_list args;
+        va_start(args, format);
+#ifdef __useNames
+        hwal->logger_get()->log_args(ll, color, format, args, name, llstate);
+#else
+        hwal->logger_get()->log_args(ll, color, format, args, "X", llstate);
+#endif
+    }
+    void set_hwal(HWAL *_hwal) { this->hwal = _hwal; }
+    HWAL_Log::LogLevel llstate_get() { return llstate; }
+
+    //bool emitInitialEventOnEnter()
+//    virtual bool emitInitialEventOnEnter() = 0;
+};
+
+/*
+struct StateBase {
+    HWAL *hwal;
+    HWAL_Log::LogLevel llstate;
+    bool emitInitialEventOnEnter_val;
+
+#ifdef __useNames
+    char *name;
+protected:
+    // Disable copy and moveconstructors, states are not to be copied or moved
+    StateBase(const char *, const char *, HWAL_Log::LogLevel _llstate)
+    : hwal(nullptr), llstate(_llstate) { }
     StateBase(const StateBase &) : hwal(nullptr), llstate() { }
     StateBase(StateBase &&) noexcept : hwal(nullptr), llstate() { }
     StateBase(const StateBase &&) noexcept : hwal(nullptr), llstate(){ }
@@ -401,7 +493,7 @@ public:
     virtual void internalTransition(uint16_t event, uint16_t sender, void *payload) { };
     //virtual void internalTransition_withPayload(uint16_t event, uint16_t sender, void *payload) { };
     virtual void onEnter(uint16_t senderStateId, uint16_t event, bool isDestState, bool reentering, void *payload) { };
-    virtual void onExit(uint16_t event) { }
+    virtual void onExit(uint16_t event, void *payload) { }
 #ifdef __useNames
     virtual const char * name() = 0; //{ return ""; } // @todo make abstract
 #endif
@@ -417,9 +509,11 @@ public:
     void set_hwal(HWAL *_hwal) { this->hwal = _hwal; }
     HWAL_Log::LogLevel llstate_get() { return llstate; }
 
-    virtual bool emitInitialEventOnEnter() = 0;
-};
+    bool emitInitialEventOnEnter() {
+//    virtual bool emitInitialEventOnEnter() = 0;
+    };
 
+*/
 
 #ifdef __noNames
 #define StateSetup(STATECLASSNAME, DESCRIPTION) \
@@ -433,15 +527,26 @@ STATECLASSNAME() : StateBase(#STATECLASSNAME, DESCRIPTION)
 #endif
 
 #if defined(__useNames) && !defined(__useDescription)
-#define StateSetup(STATECLASSNAME, DESCRIPTION) \
+#define StateDefine(STATECLASSNAME, DESCRIPTION) \
+struct STATECLASSNAME : public StateBase {       \
+StateSetup(STATECLASSNAME, DESCRIPTION)
+
+#define StateSetup(STATECLASSNAME, DESCRIPTION, ...) \
+StateSetupWLL(STATECLASSNAME, DESCRIPTION, HWAL_Log::Always, ##__VA_ARGS__)
+
+#define StateSetupWLL(STATECLASSNAME, STATEDESCRIPTION, LL, ...) \
 public: \
 typedef STATECLASSNAME ThisState; \
-bool emitInitialEventOnEnter() final { return details::emitInitialEventOnEnter(); } \
 void dummy() { static_assert(std::is_same<std::remove_reference<decltype(this)>::type, STATECLASSNAME*>::value, \
     "CTC: state_setup(): First argument has to be the type of the parent class."); } \
-const char *name() { return #STATECLASSNAME; } \
-using StateBase::internalTransition; \
-STATECLASSNAME() : StateBase(#STATECLASSNAME, DESCRIPTION)
+using StateBase::internalTransition;                   \
+constexpr static const char *C_NAME = #STATECLASSNAME;                                                       \
+STATECLASSNAME() : StateBase(LL), ##__VA_ARGS__ {\
+    this->name = C_NAME; \
+    this->emitInitialEventOnEnter = details::emitInitialEventOnEnterT::value; \
+    local_init(); \
+} \
+void local_init()
 #endif
 
 #if defined(__useNames) && defined(__useDescription)
@@ -449,20 +554,28 @@ STATECLASSNAME() : StateBase(#STATECLASSNAME, DESCRIPTION)
 struct STATECLASSNAME : public StateBase {       \
 StateSetup(STATECLASSNAME, DESCRIPTION)
 
-#define StateSetup(STATECLASSNAME, DESCRIPTION) \
-StateSetupWLL(STATECLASSNAME, DESCRIPTION, HWAL_Log::Always)
+#define StateSetup(STATECLASSNAME, DESCRIPTION, ...) \
+StateSetupWLL(STATECLASSNAME, DESCRIPTION, HWAL_Log::Always, ##__VA_ARGS__)
 
-#define StateSetupWLL(STATECLASSNAME, DESCRIPTION, LL) \
+#define StateSetupWLL(STATECLASSNAME, STATEDESCRIPTION, LL, ...) \
 public: \
 typedef STATECLASSNAME ThisState; \
-bool emitInitialEventOnEnter() final { return details::emitInitialEventOnEnter(); } \
 void dummy() { static_assert(std::is_same<std::remove_reference<decltype(this)>::type, STATECLASSNAME*>::value, \
     "CTC: state_setup(): First argument has to be the type of the parent class."); } \
-const char *name() { return #STATECLASSNAME; } \
-const char *description() { return DESCRIPTION; } \
-using StateBase::internalTransition; \
-STATECLASSNAME() : StateBase(#STATECLASSNAME, DESCRIPTION, LL)
+using StateBase::internalTransition;                   \
+constexpr static const char *C_NAME = #STATECLASSNAME;                                                       \
+constexpr static const char *C_DESCRIPTION = STATEDESCRIPTION;                                                       \
+STATECLASSNAME() : StateBase(LL), ##__VA_ARGS__ {\
+    this->name = C_NAME; \
+    this->description = C_DESCRIPTION;                              \
+    this->emitInitialEventOnEnter = details::emitInitialEventOnEnterT::value; \
+    local_init(); \
+} \
+void local_init()
 #endif
+
+
+
 
 template<typename STATE>
 struct MarkInitialState {
@@ -511,10 +624,13 @@ public:
     static constexpr uint16_t ID_E_Undefined = 0xFFFF;
     static constexpr uint16_t ID_S_Initialization = 0xFFFE;
 
+    uint32_t sysTime;
+    uint16_t timerNum;
+    uint32_t *timerCounter;
+
 protected:
     uint16_t numberOfStates;
     uint16_t maxLevel;
-    uint32_t sysTime;
 
     HWAL *hwal;
 
@@ -531,8 +647,6 @@ protected:
     uint16_t *transitionsNumberPerState;
     TransitionImpl **transitions;
 
-    uint16_t timerNum;
-    uint32_t *timerCounter;
     uint32_t *timerCounterRepeat;
     uint16_t *timerOwner;
     uint16_t *timerInitiator;
@@ -576,7 +690,8 @@ public:
             return "S_Undefined";
         else if(id==SystemBase::ID_S_Initialization)
             return "Initialization";
-        return statesBP[id]->name();
+        return statesBP[id]->name;
+//        return statesBP[id]->name();
     }
 
     bool doLogTransitions, doLogRaiseEvent, doLogEnterState, doLogExitState, doLogEventFromBuffer;
@@ -594,6 +709,7 @@ public:
 //    }
 
     void sysTickCallback();
+    void sysTickProcess();
 
 //protected:
 //    virtual void sysTick_MutexLockOrWait() {}
@@ -642,15 +758,16 @@ protected:
 //    void activateStateFullByIds(uint16_t curStateId, uint16_t destStateId, uint16_t senderStateId, uint16_t event,
 //                                bool blockActivatedStates, bool doLog, bool initMode=false);
 
-    void deactivateStateFullById(uint16_t curStateId, uint16_t event, bool doLog);
+//    void deactivateStateFullById(uint16_t curStateId, uint16_t event, bool doLog);
+    void deactivateStateFullById(uint16_t curStateId, sys_detail::EventBuffer &cevent, bool doLog);
 
     void activateStateAndParentsByIds(uint16_t destState, sys_detail::EventBuffer &cevent, bool doLog,
                                       bool blockActivatedStates=true, bool initMode=false);
 //    void activateStateAndParentsByIds(uint16_t destState, uint16_t senderState, uint16_t event, bool doLog,
 //                                      bool blockActivatedStates=true, bool initMode=false);
 
-    virtual void eventProcess_MutexLockOrWait() { hwal->eventProcess_MutexLockOrWait(); }
-    virtual void eventProcess_MutexUnLock() { hwal->eventProcess_MutexUnLock(); }
+    virtual void raiseEvent_MutexLockOrWait() { hwal->raiseEvent_MutexLockOrWait(); }
+    virtual void raiseEvent_MutexUnLock() { hwal->raiseEvent_MutexUnLock(); }
 
 public:
     bool checkIfStateIsChildOfOrSame(uint16_t parentState, uint16_t childState);

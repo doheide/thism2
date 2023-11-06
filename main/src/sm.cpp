@@ -50,9 +50,11 @@ void SystemBase::processEvents() {
 //        lol->logf(HWAL_Log::Details, "pe: transitionsNumberPerState[%d] = %d",
 //                  csi, transitionsNumberPerState[csi]);
 
-    eventProcess_MutexLockOrWait();
+    sysTickProcess();
+
+    raiseEvent_MutexLockOrWait();
     uint8_t readUntil = eventBufferWritePos;
-    eventProcess_MutexUnLock();
+    raiseEvent_MutexUnLock();
     if(eventBufferReadPos == readUntil)
         return;
 
@@ -175,34 +177,34 @@ uint16_t SystemBase::getParentIdBI(uint16_t cstate) {
     return stateParents[cstate];
 }
 
-#include <cstdio>
-void SystemBase::sysTickCallback() {
-    hwal->sysTick_MutexLockOrWait();
 
+inline void SystemBase::sysTickCallback() {
     sysTime++;
-
     for(uint16_t i=0; i!=timerNum; i++) {
         if(timerCounter[i]>1)
             timerCounter[i]--;
+    }
+}
 
+void SystemBase::sysTickProcess() {
+    for(uint16_t i=0; i!=timerNum; i++) {
         if(timerCounter[i]==1) {
             // printf("timer %d is one (will set to %d)\n", i, timerCounterRepeat[i]);
-            raiseEventIdByIds(timerEvents[i], timerInitiator[i], true, 0, true);
+            raiseEventIdByIds(timerEvents[i], timerInitiator[i], true, 0, false);
             timerCounter[i] = timerCounterRepeat[i];
         }
     }
-    hwal->sysTick_MutexUnLock();
 }
 
 void SystemBase::raiseEventIdByIds(uint16_t eventId, uint16_t senderStateId, bool preventLog, EventPayloadBase *payload,
                                    bool do_filter) {
-    eventProcess_MutexLockOrWait();
+    raiseEvent_MutexLockOrWait();
     if(do_filter) {
         int c_read_pos = eventBufferReadPos;
         while(c_read_pos != eventBufferWritePos) {
             auto &ce = eventBuffer[c_read_pos];
             if(ce.event==eventId && ce.sender == senderStateId && ce.payload == payload) {
-                eventProcess_MutexUnLock();
+                raiseEvent_MutexUnLock();
                 return;
             }
             c_read_pos++; c_read_pos &= (1<<EVENT_BUFFER_SIZE_V) - 1;
@@ -216,7 +218,7 @@ void SystemBase::raiseEventIdByIds(uint16_t eventId, uint16_t senderStateId, boo
         eventBufferWritePos = 0;
         eventBuffer[eventBufferWritePos++] = {ID_E_FatalError, ID_S_Undefined, new E_FatalError::payload_type("EventRingBuffer full") };
     }
-    eventProcess_MutexUnLock();
+    raiseEvent_MutexUnLock();
 
     if(!preventLog) {
         HWAL_Log *lol = this->hwal->logger_get();
@@ -272,7 +274,7 @@ void SystemBase::executeTransition(uint16_t startState, uint16_t destState, sys_
 
     // make list of states to disable
     while ((lastActiveChild != ID_S_Undefined) && (lastActiveChild != commonState)) {
-        deactivateStateFullById(lastActiveChild, cevent.event, doLog);
+        deactivateStateFullById(lastActiveChild, cevent, doLog);
         lastActiveChild = getParentIdBI(lastActiveChild);
     }
     // activate from common state to destState
@@ -291,7 +293,7 @@ void SystemBase::activateStateFullByIds(uint16_t curStateId, uint16_t destStateI
     if(!isCStateActive || initMode || (isCStateActive && curStateId == destStateId)) {
         if(isCStateActive && !initMode)
             //getStateById(curStateId)->onExit(isCStateActive);
-            deactivateStateFullById(curStateId, cevent.event, doLog);
+            deactivateStateFullById(curStateId, cevent, doLog);
 
         if(this->doLogEnterState && doLog)
             lol->logfll(HWAL_Log::Info, getStateById(curStateId)->llstate_get(), HWAL_Log::DGreen,
@@ -307,7 +309,7 @@ void SystemBase::activateStateFullByIds(uint16_t curStateId, uint16_t destStateI
 
         if(isDestState) {
             bool hasInitialEventTransition = false;
-            bool forceRaiseInitial = getStateById(curStateId)->emitInitialEventOnEnter();
+            bool forceRaiseInitial = getStateById(curStateId)->emitInitialEventOnEnter;
             if(!forceRaiseInitial)
                 for(uint16_t tii=0; tii!=transitionsNumberPerState[curStateId]; tii++) {
                     TransitionImpl *tics = &(transitions[curStateId][tii]);
@@ -322,14 +324,15 @@ void SystemBase::activateStateFullByIds(uint16_t curStateId, uint16_t destStateI
     }
 }
 
-void SystemBase::deactivateStateFullById(uint16_t curStateId, uint16_t event, bool doLog) {
+//void SystemBase::deactivateStateFullById(uint16_t curStateId, uint16_t event, bool doLog) {
+void SystemBase::deactivateStateFullById(uint16_t curStateId, sys_detail::EventBuffer &cevent, bool doLog) {
     HWAL_Log *lol = this->hwal->logger_get();
 
     if(this->doLogExitState && doLog)
         lol->logfll(HWAL_Log::Info, getStateById(curStateId)->llstate_get(), HWAL_Log::DDRed, "!! EX %s",
                     getStateName(curStateId));
 
-    getStateById(curStateId)->onExit(event);
+    getStateById(curStateId)->onExit(cevent.event, cevent.payload);
     isStateActiveSetBI(curStateId, false);
 
     for(uint16_t i=0; i!=timerNum; i++) {

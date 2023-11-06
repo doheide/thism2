@@ -126,8 +126,8 @@ public:
     virtual void sysTick_MutexLockOrWait() = 0;
     virtual void sysTick_MutexUnLock() = 0;
 
-    virtual void eventProcess_MutexLockOrWait() = 0;
-    virtual void eventProcess_MutexUnLock() = 0;
+    virtual void raiseEvent_MutexLockOrWait() = 0;
+    virtual void raiseEvent_MutexUnLock() = 0;
 
     virtual uint64_t get_time() = 0;
     virtual uint8_t write_logger_time(uint64_t) = 0;
