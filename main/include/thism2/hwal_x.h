@@ -129,7 +129,7 @@ public:
     virtual void raiseEvent_MutexLockOrWait() = 0;
     virtual void raiseEvent_MutexUnLock() = 0;
 
-    virtual uint64_t get_time() = 0;
+    virtual uint64_t get_time_since_start() = 0;
     virtual uint8_t write_logger_time(uint64_t) = 0;
 
     virtual HWAL_Log *logger_get() = 0;

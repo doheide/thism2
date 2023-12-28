@@ -8,6 +8,7 @@
 #include "thism2/sm.h"
 #include "thism2/hwal_log_std.h"
 
+
 // **********************************************************
 // **********************************************************
 struct HWAL_Std_No_HW : public HWAL_LoggerT<HWAL_Log_Std> {
@@ -33,6 +34,12 @@ struct HWAL_Std_No_HW : public HWAL_LoggerT<HWAL_Log_Std> {
         time_t now = std::time(0);
         return (uint64_t) now;
     }
+
+    void sysTick_MutexLockOrWait() final {};
+    void sysTick_MutexUnLock() final {};
+
+    void raiseEvent_MutexLockOrWait() final {};
+    void raiseEvent_MutexUnLock() final {};
 };
 
 
@@ -45,7 +52,9 @@ MAKE_EVENT(E_On, 0);
 MAKE_EVENT(E_Off, 0);
 MAKE_EVENT(E_On_Blink, 0);
 
-struct EventList; MAKE_EVENT_LIST(EventList, E_LED_on, E_LED_off, E_On, E_Off, E_On_Blink);
+MAKE_SM_EVENT_LIST(SM_Events, E_LED_on, E_LED_off, E_On, E_Off, E_On_Blink);
+
+MAKE_EVENT_LIST(EventList, SM_Events);
         //, E_Off_Blink);
 
 // **********************************************************
@@ -58,7 +67,7 @@ struct S_LED_Off : public StateBase {
 
     typedef StateDetails< void, false, TransitionListT<TransitionT<E_LED_on, S_LED_On>> > details;
 
-    void onEnter(uint16_t senderStateId, uint16_t event, bool isDestState, bool reentering) final;
+    void onEnter(uint16_t senderStateId, uint16_t event, bool isDestState, bool reentering, void*) final;
 };
 
 struct S_LED_On : public StateBase {
@@ -66,7 +75,7 @@ struct S_LED_On : public StateBase {
 
     typedef StateDetails< void, false, TransitionListT<TransitionT<E_LED_off, S_LED_Off>> > details;
 
-    void onEnter(uint16_t senderStateId, uint16_t event, bool isDestState, bool reentering) final;
+    void onEnter(uint16_t senderStateId, uint16_t event, bool isDestState, bool reentering, void*) final;
 };
 
 
@@ -79,7 +88,7 @@ struct S_Off : public StateBase {
             TransitionT<E_On, S_On>, TransitionT<E_On_Blink, S_Blink_On>
     > > details;
 
-    void onEnter(uint16_t senderStateId, uint16_t event, bool isDestState, bool reentering) final;
+    void onEnter(uint16_t senderStateId, uint16_t event, bool isDestState, bool reentering, void*) final;
 };
 
 struct S_On : public StateBase {
@@ -90,7 +99,7 @@ struct S_On : public StateBase {
         TransitionT<E_On_Blink, S_Blink_Off>
     > > details;
 
-    void onEnter(uint16_t senderStateId, uint16_t event, bool isDestState, bool reentering) final;
+    void onEnter(uint16_t senderStateId, uint16_t event, bool isDestState, bool reentering, void*) final;
 };
 
 struct S_Blink : public StateBase {
@@ -111,7 +120,7 @@ StateSetup(S_Blink_On, "Blink off state.") { }
             TransitionT<E_Timer, S_Blink_Off>
     > > details;
 
-    void onEnter(uint16_t senderStateId, uint16_t event, bool isDestState, bool reentering) final;
+    void onEnter(uint16_t senderStateId, uint16_t event, bool isDestState, bool reentering, void*) final;
 };
 
 struct S_Blink_Off : public StateBase {
@@ -121,7 +130,7 @@ StateSetup(S_Blink_Off, "Blink off state.") { }
             TransitionT<E_Timer, S_Blink_On>
     > > details;
 
-    void onEnter(uint16_t senderStateId, uint16_t event, bool isDestState, bool reentering) final;
+    void onEnter(uint16_t senderStateId, uint16_t event, bool isDestState, bool reentering, void*) final;
 };
 
 
@@ -133,7 +142,7 @@ Make_StateMachine(SM_LED, true, MarkInitialState<S_LED_Off>, S_LED_On);
 typedef SMTimer<Collector<S_Blink_On, S_Blink_Off>> SMT_Main;
 typedef SMTimerListTmpl<EventList, SMT_Main> SMTimerList;
 
-typedef SMSystem<EventList, Collector<SM_State, SM_LED>, SMTimerList, HWAL_Std_No_HW> SMSys;
+typedef SMSystem<EventList, Collector<SM_State, SM_LED>, SMTimerList, HWAL_Std_No_HW, Collector<>> SMSys;
 
 extern SMSys *smsys;
 

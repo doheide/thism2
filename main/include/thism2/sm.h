@@ -28,7 +28,7 @@
 
 #include <type_traits>
 #include <stdint.h>
-
+#include <algorithm>
 #include "hwal_x.h"
 
 #ifndef LOG_INITIAL_EVENT
@@ -68,7 +68,7 @@
 #error useNames or nonNames options must not be defined at the same time.
 #endif
 #if !defined(__useNames) && !defined(__noNames)
-#error Either __useNames or __nonNames options have to be defined.
+#error Either __useNames or __noNames options have to be defined.
 #endif
 
 #if defined(__useDescription) && defined(__noDescription)
@@ -205,6 +205,7 @@ struct EventPayloadBase {};
 #define EOPT_ONLY_FROM_SELF 1
 #define EOPT_ONLY_FROM_SELF_OR_PARENT 3
 #define EOPT_ONLY_FROM_SELF_OR_PARENT_OR_CHILD 7
+#define EOPT_IGNORE_IF_DEST_STATE_IS_ACTIVE 8
 
 #ifdef __useNames
 #define MAKE_EVENT_W_PAYLOAD(EVENTNAME, OPTS, PAYLOAD_TYPE) \
@@ -286,8 +287,11 @@ namespace event_details {
 namespace event_details {
     struct EventListBase { };
 
+    template <typename ...>
+    struct EventListAll;
+
     template<typename ...A>
-    struct EventListAll {
+    struct EventListAll<Collector<A...>> {
         static_assert(event_details::EventEnsureEveryConcept<A...>::value, "lala");
         typedef Collector<A...> type;
         static const uint16_t size = sizeof...(A);
@@ -301,12 +305,35 @@ namespace event_details {
         EventListAll() : eventOpts{ A::val_t::value ... }
         { }
     };
+
+/*    template<typename ...A>
+    struct EventListAll {
+        static_assert(event_details::EventEnsureEveryConcept<A...>::value, "lala");
+        typedef Collector<A...> type;
+        static const uint16_t size = sizeof...(A);
+
+        template<typename CEV>
+        using EventId = typename sys_detail::helper::Id_Impl<CEV, std::integral_constant<uint16_t, 0>, Collector<A...>,
+                sys_detail::helper::id_helper::ErrorOnVoid>::type;
+
+        uint8_t eventOpts[sizeof...(A)];
+
+        EventListAll() : eventOpts{ A::val_t::value ... }
+        { }
+    };*/
 }
 
 
 struct EventBinaryPayload : EventPayloadBase {
     char *data;
     int16_t data_size;
+
+    EventBinaryPayload(EventBinaryPayload&& arg) {
+        data = arg.data;
+        data_size = arg.data_size;
+        arg.data = nullptr;
+        arg.data_size = 0;
+    }
 
     explicit EventBinaryPayload(const char *data_in, int16_t _data_size) : data(nullptr), data_size(_data_size) {
         if(data_in != nullptr)
@@ -330,6 +357,9 @@ struct EventBinaryPayload : EventPayloadBase {
     }
 };
 struct EventStringPayload : EventBinaryPayload {
+    EventStringPayload(EventStringPayload&& arg) : EventBinaryPayload(std::move(arg))
+    { }
+
     explicit EventStringPayload(const char *str_in) : EventBinaryPayload(nullptr, 0) {
         int len;
         for(len=0; len < 300 && str_in[len] != 0; len++);
@@ -351,7 +381,8 @@ struct E_Timer; MAKE_EVENT(E_Timer, EOPT_ONLY_FROM_SELF);
 #define ID_E_Timer 2
 template<typename ...A>
 struct EventListAll : event_details::EventBase {
-    typedef typename event_details::EventListAll<E_FatalError, E_Initial, E_Timer, A...> AllEvents;
+    typedef typename event_details::EventListAll<typename detail::JoinCollectors<
+            Collector<E_FatalError, E_Initial, E_Timer>, A...>::type> AllEvents;
     typedef typename AllEvents::type type;
 
     template<typename CEV>
@@ -360,6 +391,8 @@ struct EventListAll : event_details::EventBase {
     AllEvents events;
 };
 #define MAKE_EVENT_LIST(XXX, ...) struct XXX : EventListAll<__VA_ARGS__> {}
+
+#define MAKE_SM_EVENT_LIST(XXX, ...) typedef Collector<__VA_ARGS__> XXX
 
 // *****************************************************************
 // *****************************************************************
@@ -526,10 +559,12 @@ using StateBase::internalTransition; \
 STATECLASSNAME() : StateBase(#STATECLASSNAME, DESCRIPTION)
 #endif
 
+
 #if defined(__useNames) && !defined(__useDescription)
-#define StateDefine(STATECLASSNAME, DESCRIPTION) \
+/*#define StateDefine(STATECLASSNAME, DESCRIPTION) \
 struct STATECLASSNAME : public StateBase {       \
-StateSetup(STATECLASSNAME, DESCRIPTION)
+StateSetup(STATECLASSNAME, DESCRIPTION)*/
+
 
 #define StateSetup(STATECLASSNAME, DESCRIPTION, ...) \
 StateSetupWLL(STATECLASSNAME, DESCRIPTION, HWAL_Log::Always, ##__VA_ARGS__)
@@ -548,6 +583,7 @@ STATECLASSNAME() : StateBase(LL), ##__VA_ARGS__ {\
 } \
 void local_init()
 #endif
+
 
 #if defined(__useNames) && defined(__useDescription)
 #define StateDefine(STATECLASSNAME, DESCRIPTION) \
@@ -732,7 +768,12 @@ public:
     void clearEvents();
 
 protected:
-    virtual bool checkEventProtection(sys_detail::EventBuffer &cevent, uint16_t cStateId);
+    /// Checks the protection for an event processing a transition from \p startStateId to \p destStateId.
+    /// \param cevent information regarding the current event
+    /// \param startStateId Id of the start state of the transition to be executed
+    /// \param destStateId Id of the destination state of the transition to be executed
+    /// \return false if the protection inhibits the execution of a transition
+    virtual bool checkEventProtection(sys_detail::EventBuffer &cevent, uint16_t startStateId, uint16_t destStateId);
 
     bool isStateActiveBI(uint16_t cstate);
     void isStateActiveSetBI(uint16_t cstate, bool v);
@@ -1233,6 +1274,13 @@ public:
         return event_details::getEventName<EventListT>(id);
     }
 
+    template<typename EVENT>
+    uint8_t eventOptsGet() {
+        return eventOpts[EventId<EVENT>()];
+    }
+    uint8_t eventOptsGetById(uint16_t event_id) {
+        return eventOpts[event_id];
+    }
 
 protected:
     sm_helper::StateMachineImpl<StatesT, Collector<SMs...>> sms;
@@ -1304,7 +1352,7 @@ public:
     }
     template<typename EVENT> void raiseEvent_noSender(typename EVENT::payload_type *payload=0, bool preventLog=true) {
         static_assert(detail::is_one_of_collection<EVENT, typename EventListT::AllEvents::type>::value, "CTC raiseEvent<>(): Event is not part of systems event list.");
-        raiseEventIdByIds(EventListT::template EventId<EVENT>::value, ID_S_Undefined, false, payload);
+        raiseEventIdByIds(EventListT::template EventId<EVENT>::value, ID_S_Undefined, preventLog, payload);
     }
     template<typename EVENT> void raiseEvent(uint16_t sender, typename EVENT::payload_type *payload=0) {
         static_assert(detail::is_one_of_collection<EVENT, typename EventListT::AllEvents::type>::value, "CTC raiseEvent<>(): Event is not part of systems event list.");

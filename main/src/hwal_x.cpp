@@ -24,7 +24,7 @@ void HWAL_Log::logs(LogLevel ll, int8_t color, const char *str, const char *stat
             if (this->hwal == nullptr)
                 write_to_log("xxxxxx-xxxxxx ");
             else {
-                uint64_t t = this->hwal->get_time();
+                uint64_t t = this->hwal->get_time_since_start();
                 //write_time(t);
                 time_area = this->hwal->write_logger_time(t);
                 write_to_log(" ");

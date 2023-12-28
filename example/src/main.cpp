@@ -15,7 +15,7 @@ int main() {
 
     while(smsys->sysTimeGet() < 20) {
         smsys->processEvents();
-        smsys->processEvents();
+//        smsys->processEvents();
 
         hwal.sleep_ticks(100);
         smsys->sysTickCallback();

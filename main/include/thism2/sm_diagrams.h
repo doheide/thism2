@@ -79,11 +79,13 @@ QString make_treeuml(SYS *sys) {
                             } else {
                                 s += QString("%1").arg(sys->getStateById(cs)->name);
                             }
-                            s += QString(" --> %1: %2 (%3)\n")
+                            s += QString(" --> %1: %2 (%3)\\n%4\n")
                                     .arg(sys->getStateById(tfs.transitions[ct].stateId)->name)
                                     .arg(event_details::getEventName<typename SYS::EventListT>(
                                             tfs.transitions[ct].eventId))
-                                    .arg(tfs.transitions[ct].eventId);
+                                    .arg(tfs.transitions[ct].eventId)
+                                    .arg((smsys->eventOptsGetById(tfs.transitions[ct].eventId) &
+                                        EOPT_IGNORE_IF_DEST_STATE_IS_ACTIVE) > 0 ? "[ignore_if_dest_state_is_active]" : "");
                         }
                 }
 

@@ -16,30 +16,30 @@ void HWAL_Std_No_HW::set_led(uint8_t v) {
 
 // *****************************************************************************************
 // *****************************************************************************************
-void S_LED_Off::onEnter(uint16_t senderStateId, uint16_t event, bool isDestState, bool reentering) {
+void S_LED_Off::onEnter(uint16_t senderStateId, uint16_t event, bool isDestState, bool reentering, void*) {
     HWAL_Std_No_HW *chwal = reinterpret_cast<HWAL_Std_No_HW *>(smsys->hwalBaseGet());
     chwal->set_led(0);
 }
 
-void S_LED_On::onEnter(uint16_t senderStateId, uint16_t event, bool isDestState, bool reentering) {
+void S_LED_On::onEnter(uint16_t senderStateId, uint16_t event, bool isDestState, bool reentering, void*) {
     HWAL_Std_No_HW *chwal = reinterpret_cast<HWAL_Std_No_HW *>(smsys->hwalBaseGet());
     chwal->set_led(1);
 }
 
-void S_Off::onEnter(uint16_t senderStateId, uint16_t event, bool isDestState, bool reentering) {
+void S_Off::onEnter(uint16_t senderStateId, uint16_t event, bool isDestState, bool reentering, void*) {
     smsys->raiseEvent<E_LED_off, ThisState>();
 }
 
-void S_On::onEnter(uint16_t senderStateId, uint16_t event, bool isDestState, bool reentering) {
+void S_On::onEnter(uint16_t senderStateId, uint16_t event, bool isDestState, bool reentering, void*) {
     smsys->raiseEvent<E_LED_on, ThisState>();
 }
 
-void S_Blink_On::onEnter(uint16_t senderStateId, uint16_t event, bool isDestState, bool reentering) {
+void S_Blink_On::onEnter(uint16_t senderStateId, uint16_t event, bool isDestState, bool reentering, void*) {
     smsys->raiseEvent<E_LED_on, ThisState>();
     smsys->startTimer<SMT_Main, ThisState>(false, 1);
 }
 
-void S_Blink_Off::onEnter(uint16_t senderStateId, uint16_t event, bool isDestState, bool reentering) {
+void S_Blink_Off::onEnter(uint16_t senderStateId, uint16_t event, bool isDestState, bool reentering, void*) {
     smsys->raiseEvent<E_LED_off, ThisState>();
     smsys->startTimer<SMT_Main, ThisState>(false, 1);
 }

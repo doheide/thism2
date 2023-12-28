@@ -102,8 +102,8 @@ void SystemBase::processEvents() {
 
                         bool doLogT = this->getLogForStateInStateMachine(csi);
                         if(cevent.event == tics->eventId) {
-                            if(checkEventProtection(cevent, csi)) {
-                                uint16_t &cs = tics->stateId;
+                            uint16_t &cs = tics->stateId;
+                            if(checkEventProtection(cevent, csi, cs)) {
 
                                 // @todo Describe arguments: What does block activated States mean?
                                 executeTransition(csi, cs, cevent, true, doLogT);
@@ -119,7 +119,7 @@ void SystemBase::processEvents() {
                     }
 
                     if(isStateActiveBI(csi) && !isStateBlockedBI(csi)) {
-                        if(checkEventProtection(cevent, csi)) {
+                        if(checkEventProtection(cevent, csi, ID_S_Undefined)) {
                             StateBase *sb = getStateById(csi);
                             sb->internalTransition(cevent.event, cevent.sender, cevent.payload);
                             //sb->internalTransition_withPayload(cevent.event, cevent.sender, cevent.payload);
@@ -133,24 +133,36 @@ void SystemBase::processEvents() {
     }
 }
 
-bool SystemBase::checkEventProtection(sys_detail::EventBuffer &cevent, uint16_t cStateId) {
+bool SystemBase::checkEventProtection(sys_detail::EventBuffer &cevent, uint16_t startStateId, uint16_t destStateId) {
     if(eventOpts[cevent.event]==0)
         return true;
-    if((eventOpts[cevent.event] & EOPT_ONLY_FROM_SELF) && (cevent.sender==cStateId))
-        return true;
-    if(eventOpts[cevent.event] & EOPT_ONLY_FROM_SELF_OR_PARENT) {
-        uint16_t cn = cStateId;
-        while((cn=getParentIdBI(cn)) != ID_S_Undefined)
-            if(cevent.sender==cn)
-                return true;
-    }
+
     if(eventOpts[cevent.event] & EOPT_ONLY_FROM_SELF_OR_PARENT_OR_CHILD) {
-        uint16_t cn = cevent.sender;
-        while((cn=getParentIdBI(cn)) != ID_S_Undefined)
-            if(cevent.sender==cStateId)
-                return true;
+        bool or_result = false;
+        if ((eventOpts[cevent.event] & EOPT_ONLY_FROM_SELF) && (cevent.sender == startStateId))
+            or_result = true;
+        if (eventOpts[cevent.event] & EOPT_ONLY_FROM_SELF_OR_PARENT) {
+            uint16_t cn = startStateId;
+            while ((cn = getParentIdBI(cn)) != ID_S_Undefined)
+                if (cevent.sender == cn)
+                    or_result = true;
+        }
+        if (eventOpts[cevent.event] & EOPT_ONLY_FROM_SELF_OR_PARENT_OR_CHILD) {
+            uint16_t cn = cevent.sender;
+            while ((cn = getParentIdBI(cn)) != ID_S_Undefined)
+                if (cevent.sender == startStateId)
+                    or_result = true;
+        }
+        if (!or_result)
+            return false;
     }
-    return false;
+    if(eventOpts[cevent.event] & EOPT_IGNORE_IF_DEST_STATE_IS_ACTIVE) {
+//        if(destStateId==ID_S_Undefined) what is this???
+//            return true;
+        if(isStateActiveBI(destStateId))
+            return false;
+    }
+    return true;
 }
 
 bool SystemBase::isStateActiveBI(uint16_t cstate) {
@@ -329,7 +341,7 @@ void SystemBase::deactivateStateFullById(uint16_t curStateId, sys_detail::EventB
     HWAL_Log *lol = this->hwal->logger_get();
 
     if(this->doLogExitState && doLog)
-        lol->logfll(HWAL_Log::Info, getStateById(curStateId)->llstate_get(), HWAL_Log::DDRed, "!! EX %s",
+        lol->logfll(HWAL_Log::Info, getStateById(curStateId)->llstate_get(), HWAL_Log::DGreen, "!! EX %s",
                     getStateName(curStateId));
 
     getStateById(curStateId)->onExit(cevent.event, cevent.payload);
