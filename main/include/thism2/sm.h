@@ -489,7 +489,11 @@ public:
     virtual void onEnter(uint16_t senderStateId, uint16_t event, bool isDestState, bool reentering, void *payload) { };
     virtual void onExit(uint16_t event, void *payload) { }
 
-    void logf(HWAL_Log::LogLevel ll, int8_t color, const char *format, ...) {
+    void logf(HWAL_Log::LogLevel ll, int8_t color, const char *format, ...)
+#ifdef __GNUC__
+    __attribute__ ((format (printf, 4, 5)))
+#endif
+    {
         va_list args;
         va_start(args, format);
 #ifdef __useNames
@@ -580,7 +584,7 @@ STATECLASSNAME() : StateBase(LL), ##__VA_ARGS__ {\
     this->name = C_NAME; \
     this->emitInitialEventOnEnter = details::emitInitialEventOnEnterT::value; \
     local_init(); \
-} \
+}                                                                \
 void local_init()
 #endif
 
@@ -704,6 +708,9 @@ public:
     uint16_t numberOfStatesGet() { return numberOfStates; }
     uint16_t maxLevelGet() { return maxLevel; }
     uint8_t eventsInBuffer() { return eventBufferWritePos - eventBufferReadPos; }
+    uint8_t eventBufferReadPosGet() { return eventBufferReadPos; }
+    uint8_t eventBufferWritePosGet() { return eventBufferWritePos; }
+    sys_detail::EventBuffer eventBufferGetElement(uint8_t idx) { return eventBuffer[idx]; }
 
     uint16_t getParentIdBI(uint16_t cstate);
 

@@ -91,7 +91,11 @@ public:
         logs(ll, color, log_str, nullptr, ll_display);
     }
 
-    virtual void logf(LogLevel ll, int8_t color, const char *format, ...) {
+    virtual void logf(LogLevel ll, int8_t color, const char *format, ...)
+#ifdef __GNUC__
+    __attribute__ ((format (printf, 4, 5)))
+#endif
+    {
         va_list args;
         va_start(args, format);
 
