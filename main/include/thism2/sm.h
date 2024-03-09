@@ -1349,6 +1349,9 @@ public:
         static_assert(detail::is_one_of_collection<STATE, StatesT>::value, "CTC isStateActive<>(): State is not part of systems state list.");
         return isStateActiveBI(StateId<STATE>::value);
     }
+    bool isStateActive(uint16_t state_id) {
+        return isStateActiveBI(state_id);
+    }
 //    template<typename STATE> bool hasInitialTransition()
 //    { return hasInitialTransitionBI(StateId<STATE>::value); }
 

@@ -243,8 +243,11 @@ void SystemBase::raiseEventIdByIds(uint16_t eventId, uint16_t senderStateId, boo
 }
 void SystemBase::clearEvents() {
     HWAL_Log *lol = this->hwal->logger_get();
-    lol->logf(HWAL_Log::Warning, HWAL_Log::IGreen, "Clear events called");
-    eventBufferWritePos = 0; eventBufferReadPos = 0;
+    lol->logf(HWAL_Log::Error, HWAL_Log::IGreen, "Clear events called - but disabled");
+
+//    HWAL_Log *lol = this->hwal->logger_get();
+//    lol->logf(HWAL_Log::Warning, HWAL_Log::IGreen, "Clear events called");
+//    eventBufferWritePos = 0; eventBufferReadPos = 0;
 }
 
 

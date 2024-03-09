@@ -120,6 +120,41 @@ QString make_treeuml(SYS *sys) {
     return out;
 }
 
+#include <QJsonArray>
+namespace make_statelist_helper {
+    template<typename ... > struct AppendStateName;
+    template<typename SYS, typename STATE, typename ... STATEs>
+    struct AppendStateName<SYS, Collector<STATE, STATEs...>> {
+        void operator()(SYS *sys, QJsonArray &states) {
+            states.append(sys->template getStateRef<STATE>().name);
+            AppendStateName<SYS, Collector<STATEs...>> asn;
+            asn(sys, states);
+        }
+    };
+    template<typename SYS, typename STATE, typename ... STATEs>
+    struct AppendStateName<SYS, Collector<MarkInitialState<STATE>, STATEs...>> {
+        void operator()(SYS *sys, QJsonArray &states) {
+            states.append(QString("*%1").arg(sys->template getStateRef<STATE>().name));
+            AppendStateName<SYS, Collector<STATEs...>> asn;
+            asn(sys, states);
+        }
+    };
+    template<typename SYS>
+    struct AppendStateName<SYS, Collector<>> {
+        void operator()(SYS *, QJsonArray &) { }
+    };
+
+}
+template <typename SM, typename SYS>
+QJsonArray make_statelist(SYS *sys) {
+    QJsonArray states;
+
+    make_statelist_helper::AppendStateName<SYS, typename SM::StatesWithInitialFlagT> asn;
+    asn(sys, states);
+
+    return states;
+}
+
 namespace helper {
 
     template<typename ...>
@@ -145,6 +180,23 @@ namespace helper {
     template<typename SYS>
     struct Make_Treeuml_allSMs_impl<SYS, Collector<>> {
         QString operator()(SYS */*sys*/, const char *) { return ""; }
+    };
+
+    template<typename ...>
+    struct Make_StateList_impl;
+    template<typename SYS, typename SM, typename ... SMs>
+    struct Make_StateList_impl<SYS, Collector<SM, SMs...>> {
+        void operator()(QJsonObject &root, SYS *sys) {
+            auto sl = make_statelist<SM, SYS>(sys);
+            root[SM::name()] = sl;
+
+            Make_StateList_impl<SYS, Collector<SMs...>> msl;
+            msl(root, sys);
+        }
+    };
+    template<typename SYS>
+    struct Make_StateList_impl<SYS, Collector<>> {
+        void operator()(QJsonObject &, SYS *) { }
     };
 }
 
@@ -174,6 +226,26 @@ void make_treeuml_allSMs(SYS *sys, const char *path) {
 
     QTextStream out(&file);
     out << makefile;
+}
+
+#include <QJsonObject>
+#include <QJsonDocument>
+
+template <typename SYS>
+void make_allSMs_list(SYS *sys, const char *path) {
+    QJsonObject root;
+    helper::Make_StateList_impl<SYS, typename SYS::SMsT> msl;
+    msl(root, sys);
+
+    QByteArray ba = QJsonDocument(root).toJson();
+    QTextStream ts(stdout);
+    ts << "rendered JSON" << Qt::endl;
+    ts << ba;
+    {
+        QFile fout(QString("%1/state_names.json").arg(path));
+        fout.open(QIODevice::WriteOnly);
+        fout.write(ba);
+    }
 }
 
 
