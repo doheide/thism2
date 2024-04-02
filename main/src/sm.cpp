@@ -190,7 +190,13 @@ uint16_t SystemBase::getParentIdBI(uint16_t cstate) {
 }
 
 
-inline void SystemBase::sysTickCallback() {
+/**
+ * @brief Callback function for the system tick.
+ *
+ * This function is called by the system tick timer interrupt. It increments the system time (sysTime) by 1 and
+ * decrements the timerCounter values for each active timer.
+ */
+void SystemBase::sysTickCallback() {
     sysTime++;
     for(uint16_t i=0; i!=timerNum; i++) {
         if(timerCounter[i]>1)
@@ -198,10 +204,16 @@ inline void SystemBase::sysTickCallback() {
     }
 }
 
+/**
+ * @brief Process the sysTick interrupt and handle timer events.
+ *
+ * This function is called in the sysTick interrupt handler. It checks if any timer has reached its
+ * counting value and raises the corresponding timer event. Then, it resets the timer counter to its
+ * repeat value.
+ */
 void SystemBase::sysTickProcess() {
     for(uint16_t i=0; i!=timerNum; i++) {
         if(timerCounter[i]==1) {
-            // printf("timer %d is one (will set to %d)\n", i, timerCounterRepeat[i]);
             raiseEventIdByIds(timerEvents[i], timerInitiator[i], true, 0, false);
             timerCounter[i] = timerCounterRepeat[i];
         }
