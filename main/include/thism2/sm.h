@@ -1420,6 +1420,11 @@ public:
                 return false;
         return true;
     }
+
+    template<typename EVENT>
+    static bool isEvent(uint16_t event) {
+        return event == EventId<EVENT>();
+    }
 };
 
 
