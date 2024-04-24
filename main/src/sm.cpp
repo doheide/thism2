@@ -76,9 +76,9 @@ void SystemBase::processEvents() {
     if(log_num>0)
         lol->logf(HWAL_Log::Debug,HWAL_Log::Color::Pink, "processEvents() - new events s/e: %d/%d.", eventBufferReadPos, readUntil);
 */
-
+    auto eventBufferReadPos_buffer = eventBufferReadPos;
     for(; eventBufferReadPos != readUntil; eventBufferReadPos=(eventBufferReadPos+1)&((1<<EVENT_BUFFER_SIZE_V)-1)) {
-    //for(uint8_t i=eventBufferReadPos; i != readUntil; i=(i+1)&((1<<EVENT_BUFFER_SIZE_V)-1)) {
+        //for(uint8_t i=eventBufferReadPos; i != readUntil; i=(i+1)&((1<<EVENT_BUFFER_SIZE_V)-1)) {
         sys_detail::EventBuffer &cevent = eventBuffer[eventBufferReadPos];
 
 /*        if(this->doLogEventFromBuffer) { // && (strcmp(getEventName(cevent.event), "E_Timer")!=0)) {
@@ -88,12 +88,28 @@ void SystemBase::processEvents() {
                           eventBufferReadPos, readUntil);
         }*/
 
-        for(uint16_t level = maxLevel; level!=0; level--)
-            for(uint16_t csi=0; csi!=numberOfStates; csi++)
-                if(isStateActiveBI(csi) && (stateLevels[csi]==level)) {
+        for (uint16_t level = maxLevel; level != 0; level--)
+            for (uint16_t csi = 0; csi != numberOfStates; csi++)
+                if (isStateActiveBI(csi) && (stateLevels[csi] == level)) {
+                    if (isStateActiveBI(csi) && !isStateBlockedBI(csi)) {
+                        if (checkEventProtection(cevent, csi, ID_S_Undefined)) {
+                            StateBase *sb = getStateById(csi);
+                            sb->internalTransition(cevent.event, cevent.sender, cevent.payload);
+                            //sb->internalTransition_withPayload(cevent.event, cevent.sender, cevent.payload);
+                        }
+                    }
+                }
+    }
+
+    for(eventBufferReadPos = eventBufferReadPos_buffer; eventBufferReadPos != readUntil; eventBufferReadPos=(eventBufferReadPos+1)&((1<<EVENT_BUFFER_SIZE_V)-1)) {
+        sys_detail::EventBuffer &cevent = eventBuffer[eventBufferReadPos];
+
+        for (uint16_t level = maxLevel; level != 0; level--)
+            for (uint16_t csi = 0; csi != numberOfStates; csi++)
+                if (isStateActiveBI(csi) && (stateLevels[csi] == level)) {
                     //BAHABase->logLine("active + level: ", (uint16_t) level, " ", StateIdT{csi}, " ", (uint8_t)csi);
 
-                    for(uint16_t tii=0; tii!=transitionsNumberPerState[csi]; tii++) {
+                    for (uint16_t tii = 0; tii != transitionsNumberPerState[csi]; tii++) {
 //                        lol->logf(HWAL_Log::Details, "pe: checking trns[%d][%d]", csi, tii);
 //                        lol->logf(HWAL_Log::Details, "pe: transitionsNumberPerState[%d] = %d",
 //                                  csi, transitionsNumberPerState[csi]);
@@ -101,31 +117,24 @@ void SystemBase::processEvents() {
                         TransitionImpl *tics = &(transitions[csi][tii]);
 
                         bool doLogT = this->getLogForStateInStateMachine(csi);
-                        if(cevent.event == tics->eventId) {
+                        if (cevent.event == tics->eventId) {
                             uint16_t &cs = tics->stateId;
-                            if(checkEventProtection(cevent, csi, cs)) {
+                            if (checkEventProtection(cevent, csi, cs)) {
 
                                 // @todo Describe arguments: What does block activated States mean?
                                 executeTransition(csi, cs, cevent, true, doLogT);
                                 //executeTransition(csi, cs, cevent.sender, cevent.event, true, doLogT);
                             } else {
-                                if(doLogT)
-                                    lol->logf(HWAL_Log::Debug,HWAL_Log::Color::Pink,
+                                if (doLogT)
+                                    lol->logf(HWAL_Log::Debug, HWAL_Log::Color::Pink,
                                               "Transition %s (%d) -> %s (%d) (because of %s) not executed because of protection.",
                                               getStateName(csi), csi, getStateName(tics->stateId),
                                               tics->stateId, getEventName(cevent.event));
                             }
                         }
                     }
+                }
 
-                    if(isStateActiveBI(csi) && !isStateBlockedBI(csi)) {
-                        if(checkEventProtection(cevent, csi, ID_S_Undefined)) {
-                            StateBase *sb = getStateById(csi);
-                            sb->internalTransition(cevent.event, cevent.sender, cevent.payload);
-                            //sb->internalTransition_withPayload(cevent.event, cevent.sender, cevent.payload);
-                        }
-                    }
-        }
         if(cevent.payload != 0) {
             delete cevent.payload;
             cevent.payload = 0;
