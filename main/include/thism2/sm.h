@@ -328,7 +328,7 @@ struct EventBinaryPayload : EventPayloadBase {
     char *data;
     int16_t data_size;
 
-    EventBinaryPayload(EventBinaryPayload&& arg) {
+    EventBinaryPayload(EventBinaryPayload&& arg)  noexcept {
         data = arg.data;
         data_size = arg.data_size;
         arg.data = nullptr;
@@ -339,7 +339,7 @@ struct EventBinaryPayload : EventPayloadBase {
         if(data_in != nullptr)
             copy_data(data_in, data_size);
     }
-    void copy_data(const char *data_in, int32_t _data_size) {
+    void copy_data(const char *data_in, int16_t _data_size) {
         delete_data();
 
         data_size = _data_size;
@@ -370,6 +370,10 @@ struct EventStringPayload : EventBinaryPayload {
         data[len - 1] = 0;
     }
     virtual ~EventStringPayload() { }
+};
+struct EventBoolPayload : EventPayloadBase {
+    bool b;
+    explicit EventBoolPayload(bool _b) : b(_b) { }
 };
 
 struct E_FatalError; MAKE_EVENT_W_PAYLOAD(E_FatalError, 0, EventStringPayload);
