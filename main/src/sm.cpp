@@ -257,8 +257,9 @@ void SystemBase::raiseEventIdByIds(uint16_t eventId, uint16_t senderStateId, boo
         HWAL_Log *lol = this->hwal->logger_get();
         if(this->doLogRaiseEvent) {
             if(this->getLogForStateInStateMachine(senderStateId) && this->doPrintEvent(eventId))
-                lol->logf(HWAL_Log::Info, HWAL_Log::IGreen, "!! R %s | %s (rp / wp: %d / %d)",
-                          getEventName(eventId), getStateName(senderStateId), eventBufferReadPos, eventBufferWritePos);
+                lol->logf(HWAL_Log::Info, HWAL_Log::IGreen, "!! R %s (%d) | %s (%d) (rp / wp: %d / %d)",
+                          getEventName(eventId), eventId, getStateName(senderStateId), senderStateId,
+                          eventBufferReadPos, eventBufferWritePos);
         }
     }
 }
