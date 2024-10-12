@@ -200,12 +200,13 @@ namespace sys_detail {
 }
 
 // ******************************************************************
-struct EventPayloadBase {};
+struct EventPayloadBase { virtual ~EventPayloadBase() = default; };
 
 #define EOPT_ONLY_FROM_SELF 1
 #define EOPT_ONLY_FROM_SELF_OR_PARENT 3
 #define EOPT_ONLY_FROM_SELF_OR_PARENT_OR_CHILD 7
 #define EOPT_IGNORE_IF_DEST_STATE_IS_ACTIVE 8
+#define EOPT_DONT_PRINT_RAISE_EVENT 127
 
 #ifdef __useNames
 #define MAKE_EVENT_W_PAYLOAD(EVENTNAME, OPTS, PAYLOAD_TYPE) \
@@ -348,7 +349,7 @@ struct EventBinaryPayload : EventPayloadBase {
         for(int i=0; i!=data_size; i++)
             data[i] = data_in[i];
     }
-    virtual ~EventBinaryPayload() {
+    ~EventBinaryPayload() override {
         delete_data();
     }
     void delete_data() {
@@ -361,7 +362,7 @@ struct EventStringPayload : EventBinaryPayload {
     { }
 
     explicit EventStringPayload(const char *str_in) : EventBinaryPayload(nullptr, 0) {
-        int len;
+        int16_t len;
         for(len=0; len < 300 && str_in[len] != 0; len++);
 
         len++;
@@ -369,7 +370,6 @@ struct EventStringPayload : EventBinaryPayload {
 
         data[len - 1] = 0;
     }
-    virtual ~EventStringPayload() { }
 };
 struct EventBoolPayload : EventPayloadBase {
     bool b;
@@ -500,11 +500,13 @@ public:
     {
         va_list args;
         va_start(args, format);
+        if (hwal) {
 #ifdef __useNames
-        hwal->logger_get()->log_args(ll, color, format, args, name, llstate);
+            hwal->logger_get()->log_args(ll, color, format, args, name, llstate);
 #else
-        hwal->logger_get()->log_args(ll, color, format, args, "X", llstate);
+            hwal->logger_get()->log_args(ll, color, format, args, "X", llstate);
 #endif
+        }
     }
     void set_hwal(HWAL *_hwal) { this->hwal = _hwal; }
     HWAL_Log::LogLevel llstate_get() { return llstate; }
@@ -711,7 +713,7 @@ public:
 
     uint16_t numberOfStatesGet() { return numberOfStates; }
     uint16_t maxLevelGet() { return maxLevel; }
-    uint8_t eventsInBuffer() { return eventBufferWritePos - eventBufferReadPos; }
+    bool hasEventsInBuffer() { return eventBufferWritePos != eventBufferReadPos; }
     uint8_t eventBufferReadPosGet() { return eventBufferReadPos; }
     uint8_t eventBufferWritePosGet() { return eventBufferWritePos; }
     sys_detail::EventBuffer eventBufferGetElement(uint8_t idx) { return eventBuffer[idx]; }

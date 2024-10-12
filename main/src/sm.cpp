@@ -135,9 +135,9 @@ void SystemBase::processEvents() {
                     }
                 }
 
-        if(cevent.payload != 0) {
+        if(cevent.payload != nullptr) {
             delete cevent.payload;
-            cevent.payload = 0;
+            cevent.payload = nullptr;
         }
     }
 }
@@ -405,10 +405,12 @@ void SystemBase::activateStateAndParentsByIds(uint16_t destState, sys_detail::Ev
 void SystemBase::initialSetup() {
     for(uint16_t i=0; i!=numberOfStates; i++) {
         this->getStateById(i)->set_hwal(this->hwal);
+    }
+    for(uint16_t i=0; i!=numberOfStates; i++) {
         if (isStateActiveBI(i)) {
             bool doLog = this->getLogForStateInStateMachine(i);
             sys_detail::EventBuffer cevent = {
-                    .event = SystemBase::ID_E_Undefined, .sender = SystemBase::ID_S_Initialization, .payload=0};
+                    .event = SystemBase::ID_E_Undefined, .sender = SystemBase::ID_S_Initialization, .payload = nullptr };
             activateStateAndParentsByIds(i, cevent, doLog, false, true);
         }
     }
