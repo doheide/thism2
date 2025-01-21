@@ -77,7 +77,7 @@ void SystemBase::processEvents() {
         lol->logf(HWAL_Log::Debug,HWAL_Log::Color::Pink, "processEvents() - new events s/e: %d/%d.", eventBufferReadPos, readUntil);
 */
     auto eventBufferReadPos_buffer = eventBufferReadPos;
-    for(; eventBufferReadPos != readUntil; eventBufferReadPos=(eventBufferReadPos+1)&((1<<EVENT_BUFFER_SIZE_V)-1)) {
+    for(; readUntil != eventBufferReadPos; eventBufferReadPos=(eventBufferReadPos+1)&((1<<EVENT_BUFFER_SIZE_V)-1)) {
         //for(uint8_t i=eventBufferReadPos; i != readUntil; i=(i+1)&((1<<EVENT_BUFFER_SIZE_V)-1)) {
         sys_detail::EventBuffer &cevent = eventBuffer[eventBufferReadPos];
 
@@ -92,7 +92,8 @@ void SystemBase::processEvents() {
             for (uint16_t csi = 0; csi != numberOfStates; csi++)
                 if (isStateActiveBI(csi) && (stateLevels[csi] == level)) {
                     if (isStateActiveBI(csi) && !isStateBlockedBI(csi)) {
-                        if (checkEventProtection(cevent, csi, ID_S_Undefined)) {
+                        if ((eventOpts[cevent.event] & EOPT_EXECUTE_INTERNAL_TRANSITION_EVEN_IF_IGNORED) != 0 ||
+                            checkEventTransitionProtection(cevent, csi, ID_S_Undefined)) {
                             StateBase *sb = getStateById(csi);
                             sb->internalTransition(cevent.event, cevent.sender, cevent.payload);
                             //sb->internalTransition_withPayload(cevent.event, cevent.sender, cevent.payload);
@@ -119,7 +120,7 @@ void SystemBase::processEvents() {
                         bool doLogT = this->getLogForStateInStateMachine(csi);
                         if (cevent.event == tics->eventId) {
                             uint16_t &cs = tics->stateId;
-                            if (checkEventProtection(cevent, csi, cs)) {
+                            if (checkEventTransitionProtection(cevent, csi, cs)) {
 
                                 // @todo Describe arguments: What does block activated States mean?
                                 executeTransition(csi, cs, cevent, true, doLogT);
@@ -142,32 +143,47 @@ void SystemBase::processEvents() {
     }
 }
 
-bool SystemBase::checkEventProtection(sys_detail::EventBuffer &cevent, uint16_t startStateId, uint16_t destStateId) {
+#include <stdio.h>
+/**
+ * checkEventTransitionProtection() is applied before excuting a transition for a given event _cevent_ from startStateId to destStateId.
+ *
+ * @param cevent
+ * @param startStateId
+ * @param destStateId
+ * @return Returns true if the transition with given event, start and destination states can be executed and false if not
+ */
+bool SystemBase::checkEventTransitionProtection(sys_detail::EventBuffer &cevent, uint16_t startStateId, uint16_t destStateId) {
     if(eventOpts[cevent.event]==0)
         return true;
 
-    if(eventOpts[cevent.event] & EOPT_ONLY_FROM_SELF_OR_PARENT_OR_CHILD) {
+    if(eventOpts[cevent.event] & (EOPT_ONLY_FROM_SELF_OR_PARENT_OR_CHILD | EOPT_ONLY_FROM_SELF | EOPT_ONLY_FROM_SELF_OR_PARENT)) {
         bool or_result = false;
-        if ((eventOpts[cevent.event] & EOPT_ONLY_FROM_SELF) && (cevent.sender == startStateId))
+        if (((eventOpts[cevent.event] & EOPT_ONLY_FROM_SELF) == EOPT_ONLY_FROM_SELF) && (cevent.sender == startStateId))
             or_result = true;
-        if (eventOpts[cevent.event] & EOPT_ONLY_FROM_SELF_OR_PARENT) {
+        if ((eventOpts[cevent.event] & EOPT_ONLY_FROM_SELF_OR_PARENT) == EOPT_ONLY_FROM_SELF_OR_PARENT) {
             uint16_t cn = startStateId;
             while ((cn = getParentIdBI(cn)) != ID_S_Undefined)
                 if (cevent.sender == cn)
                     or_result = true;
         }
-        if (eventOpts[cevent.event] & EOPT_ONLY_FROM_SELF_OR_PARENT_OR_CHILD) {
+        if ((eventOpts[cevent.event] & EOPT_ONLY_FROM_SELF_OR_PARENT_OR_CHILD) ==
+                EOPT_ONLY_FROM_SELF_OR_PARENT_OR_CHILD) {
             uint16_t cn = cevent.sender;
             while ((cn = getParentIdBI(cn)) != ID_S_Undefined)
-                if (cevent.sender == startStateId)
+                if (cn == startStateId)
                     or_result = true;
         }
         if (!or_result)
             return false;
     }
+    if(eventOpts[cevent.event] & EOPT_IGNORE_IF_CHILD_STATE_IS_ACTIVE) {
+        for(auto i=0; i!=numberOfStates; i++) {
+            auto child_state = getParentIdBI(i);
+            if(isStateActiveBI(child_state))
+                return false;
+        }
+    }
     if(eventOpts[cevent.event] & EOPT_IGNORE_IF_DEST_STATE_IS_ACTIVE) {
-//        if(destStateId==ID_S_Undefined) what is this???
-//            return true;
         if(isStateActiveBI(destStateId))
             return false;
     }

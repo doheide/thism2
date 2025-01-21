@@ -4,6 +4,7 @@
 #include "thism2/hwal_x.h"
 
 
+#include <stdio.h>
 void HWAL_Log::logs(LogLevel ll, int8_t color, const char *str, const char *statename,
                     LogLevel ll_in) {
     if(ll_in == LogLevel::Always)

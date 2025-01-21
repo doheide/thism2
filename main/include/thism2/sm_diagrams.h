@@ -79,13 +79,28 @@ QString make_treeuml(SYS *sys) {
                             } else {
                                 s += QString("%1").arg(sys->getStateById(cs)->name);
                             }
+
+                            auto sl_protection = QStringList();
+                            if ((smsys->eventOptsGetById(tfs.transitions[ct].eventId) & EOPT_IGNORE_IF_DEST_STATE_IS_ACTIVE) > 0)
+                                sl_protection.append("ignore_if_dest_state_is_active");
+                            if ((smsys->eventOptsGetById(tfs.transitions[ct].eventId) & EOPT_EXECUTE_INTERNAL_TRANSITION_EVEN_IF_IGNORED) > 0)
+                                sl_protection.append("execute_internal_transition_even_if_ignored");
+                            if ((smsys->eventOptsGetById(tfs.transitions[ct].eventId) & EOPT_IGNORE_IF_CHILD_STATE_IS_ACTIVE) > 0)
+                                sl_protection.append("ignore_if_child_state_is_active");
+                            if ((smsys->eventOptsGetById(tfs.transitions[ct].eventId) & EOPT_ONLY_FROM_SELF_OR_PARENT_OR_CHILD) == EOPT_ONLY_FROM_SELF_OR_PARENT_OR_CHILD)
+                                sl_protection.append("only_from_self_or_parent_or_child");
+                            else if ((smsys->eventOptsGetById(tfs.transitions[ct].eventId) & EOPT_ONLY_FROM_SELF_OR_PARENT) == EOPT_ONLY_FROM_SELF_OR_PARENT)
+                                sl_protection.append("only_from_self_or_parent");
+                            else if ((smsys->eventOptsGetById(tfs.transitions[ct].eventId) & EOPT_ONLY_FROM_SELF) == EOPT_ONLY_FROM_SELF)
+                                sl_protection.append("only_from_self");
+
                             s += QString(" --> %1: %2 (%3)\\n%4\n")
                                     .arg(sys->getStateById(tfs.transitions[ct].stateId)->name)
                                     .arg(event_details::getEventName<typename SYS::EventListT>(
                                             tfs.transitions[ct].eventId))
                                     .arg(tfs.transitions[ct].eventId)
-                                    .arg((smsys->eventOptsGetById(tfs.transitions[ct].eventId) &
-                                        EOPT_IGNORE_IF_DEST_STATE_IS_ACTIVE) > 0 ? "[ignore_if_dest_state_is_active]" : "");
+                                    .arg(sl_protection.length() > 0 ? QString("%1%2%3").arg("[")
+                                        .arg(sl_protection.join(",\\n")).arg("]") : "");
                         }
                 }
 

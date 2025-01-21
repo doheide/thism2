@@ -24,6 +24,10 @@ struct Collector : helper::CollectorBase {
     static constexpr auto size = sizeof ...(Args);
 };
 
+template <typename ...T>
+using CL = Collector<T...>;
+
+
 template<typename ...>
 struct SizeOfCollector;
 template<typename ...As>

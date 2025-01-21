@@ -201,12 +201,22 @@ namespace sys_detail {
 
 // ******************************************************************
 struct EventPayloadBase { virtual ~EventPayloadBase() = default; };
+struct EventPayloadUInt32 final : EventPayloadBase {
+    uint32_t data;
+    explicit EventPayloadUInt32(const uint32_t _data) : data(_data) {}
+};
+struct EventPayloadBool final : EventPayloadBase {
+    bool data;
+    explicit EventPayloadBool(const bool _data) : data(_data) {}
+};
 
 #define EOPT_ONLY_FROM_SELF 1
 #define EOPT_ONLY_FROM_SELF_OR_PARENT 3
 #define EOPT_ONLY_FROM_SELF_OR_PARENT_OR_CHILD 7
 #define EOPT_IGNORE_IF_DEST_STATE_IS_ACTIVE 8
-#define EOPT_DONT_PRINT_RAISE_EVENT 127
+#define EOPT_IGNORE_IF_CHILD_STATE_IS_ACTIVE 16
+#define EOPT_EXECUTE_INTERNAL_TRANSITION_EVEN_IF_IGNORED 32
+#define EOPT_DONT_PRINT_RAISE_EVENT 128
 
 #ifdef __useNames
 #define MAKE_EVENT_W_PAYLOAD(EVENTNAME, OPTS, PAYLOAD_TYPE) \
@@ -371,10 +381,10 @@ struct EventStringPayload : EventBinaryPayload {
         data[len - 1] = 0;
     }
 };
-struct EventBoolPayload : EventPayloadBase {
-    bool b;
-    explicit EventBoolPayload(bool _b) : b(_b) { }
-};
+// struct EventBoolPayload : EventPayloadBase {
+//     bool b;
+//     explicit EventBoolPayload(bool _b) : b(_b) { }
+// };
 
 struct E_FatalError; MAKE_EVENT_W_PAYLOAD(E_FatalError, 0, EventStringPayload);
 struct E_Initial; MAKE_EVENT(E_Initial, EOPT_ONLY_FROM_SELF);
@@ -462,7 +472,7 @@ struct StateDetails  {
 
 // *****
 // TO BE REMOVED
-//#include <iostream>
+#include <stdio.h>
 
 struct StateBase {
     HWAL *hwal;
@@ -513,6 +523,7 @@ public:
 
     //bool emitInitialEventOnEnter()
 //    virtual bool emitInitialEventOnEnter() = 0;
+    virtual uint16_t get_state_id() = 0;
 };
 
 /*
@@ -591,9 +602,11 @@ STATECLASSNAME() : StateBase(LL), ##__VA_ARGS__ {\
     this->emitInitialEventOnEnter = details::emitInitialEventOnEnterT::value; \
     local_init(); \
 }                                                                \
+uint16_t get_state_id() override; \
 void local_init()
 #endif
 
+#define Make_State_Get_ID(SYS, STATE_NAME) uint16_t STATE_NAME::get_state_id() { return SYS::StateId<ThisState>(); }
 
 #if defined(__useNames) && defined(__useDescription)
 #define StateDefine(STATECLASSNAME, DESCRIPTION) \
@@ -617,6 +630,7 @@ STATECLASSNAME() : StateBase(LL), ##__VA_ARGS__ {\
     this->emitInitialEventOnEnter = details::emitInitialEventOnEnterT::value; \
     local_init(); \
 } \
+uint16_t get_state_id() override; \
 void local_init()
 #endif
 
@@ -786,7 +800,7 @@ protected:
     /// \param startStateId Id of the start state of the transition to be executed
     /// \param destStateId Id of the destination state of the transition to be executed
     /// \return false if the protection inhibits the execution of a transition
-    virtual bool checkEventProtection(sys_detail::EventBuffer &cevent, uint16_t startStateId, uint16_t destStateId);
+    virtual bool checkEventTransitionProtection(sys_detail::EventBuffer &cevent, uint16_t startStateId, uint16_t destStateId);
 
     bool isStateActiveBI(uint16_t cstate);
     void isStateActiveSetBI(uint16_t cstate, bool v);
@@ -1431,8 +1445,15 @@ public:
     static bool isEvent(uint16_t event) {
         return event == EventId<EVENT>();
     }
+    template<typename EVENT>
+    static std::tuple<bool, typename EVENT::payload_type*> isEventAndConvertPointer(uint16_t event, void *p) {
+        return {event == EventId<EVENT>(), static_cast<typename EVENT::payload_type*>(p)};
+    }
 };
 
+#define IsEventWithPayload(__SYS, __EVENT, __EVENT_VAR, __PAYLOAD_VAR_VOID, __PAYLOAD_VAR_OUT) const auto [_is_event, __PAYLOAD_VAR_OUT] = __SYS::isEventAndConvertPointer<__EVENT>( __EVENT_VAR,  __PAYLOAD_VAR_VOID); _is_event
+
+#define StateRefGet(__STATE, __var) auto &__var = smsys->getStateRef<__STATE>()
 
 //template<typename ...>
 //class SMSystem;

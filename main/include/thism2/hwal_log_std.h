@@ -7,6 +7,8 @@
 #include <string.h>
 #include <ctime>
 #include <chrono>
+#include <iostream>
+#include <ostream>
 #include <thread>
 
 #include "hwal_x.h"
