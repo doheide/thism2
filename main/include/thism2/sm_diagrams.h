@@ -87,10 +87,17 @@ QString make_treeuml(SYS *sys) {
                                 sl_protection.append("execute_internal_transition_even_if_ignored");
                             if ((smsys->eventOptsGetById(tfs.transitions[ct].eventId) & EOPT_IGNORE_IF_CHILD_STATE_IS_ACTIVE) > 0)
                                 sl_protection.append("ignore_if_child_state_is_active");
+
                             if ((smsys->eventOptsGetById(tfs.transitions[ct].eventId) & EOPT_ONLY_FROM_SELF_OR_PARENT_OR_CHILD) == EOPT_ONLY_FROM_SELF_OR_PARENT_OR_CHILD)
                                 sl_protection.append("only_from_self_or_parent_or_child");
                             else if ((smsys->eventOptsGetById(tfs.transitions[ct].eventId) & EOPT_ONLY_FROM_SELF_OR_PARENT) == EOPT_ONLY_FROM_SELF_OR_PARENT)
                                 sl_protection.append("only_from_self_or_parent");
+                            else if ((smsys->eventOptsGetById(tfs.transitions[ct].eventId) & EOPT_ONLY_FROM_SELF_OR_CHILD) == EOPT_ONLY_FROM_SELF_OR_CHILD)
+                                sl_protection.append("only_from_self_or_child");
+                            else if ((smsys->eventOptsGetById(tfs.transitions[ct].eventId) & EOPT_ONLY_FROM_CHILD) == EOPT_ONLY_FROM_CHILD)
+                                sl_protection.append("only_from_child");
+                            else if ((smsys->eventOptsGetById(tfs.transitions[ct].eventId) & EOPT_ONLY_FROM_PARENT) == EOPT_ONLY_FROM_PARENT)
+                                sl_protection.append("only_from_parent");
                             else if ((smsys->eventOptsGetById(tfs.transitions[ct].eventId) & EOPT_ONLY_FROM_SELF) == EOPT_ONLY_FROM_SELF)
                                 sl_protection.append("only_from_self");
 

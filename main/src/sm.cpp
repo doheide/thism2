@@ -39,6 +39,24 @@ SystemBase::SystemBase(HWAL *_hwal)
 }
 
 #include <string.h>
+
+void SystemBase::clearEventBuffer() {
+    uint8_t readUntil = eventBufferWritePos;
+    if(eventBufferReadPos == readUntil)
+        return;
+
+    for(; readUntil != eventBufferReadPos; eventBufferReadPos=(eventBufferReadPos+1)&((1<<EVENT_BUFFER_SIZE_V)-1)) {
+        sys_detail::EventBuffer &cevent = eventBuffer[eventBufferReadPos];
+
+        if(cevent.payload != nullptr) {
+            delete cevent.payload;
+            cevent.payload = nullptr;
+        }
+    }
+    eventBufferWritePos = 0;
+    eventBufferReadPos = 0;
+}
+
 void SystemBase::processEvents() {
     HWAL_Log *lol = this->hwal->logger_get();
     //lol->logf(HWAL_Log::Debug, HWAL_Log::Color::Orange, "processEvents() start: ");
@@ -156,23 +174,29 @@ bool SystemBase::checkEventTransitionProtection(sys_detail::EventBuffer &cevent,
     if(eventOpts[cevent.event]==0)
         return true;
 
-    if(eventOpts[cevent.event] & (EOPT_ONLY_FROM_SELF_OR_PARENT_OR_CHILD | EOPT_ONLY_FROM_SELF | EOPT_ONLY_FROM_SELF_OR_PARENT)) {
+    if(eventOpts[cevent.event] & (EOPT_ONLY_FROM_SELF_OR_PARENT_OR_CHILD | EOPT_ONLY_FROM_SELF | EOPT_ONLY_FROM_SELF_OR_PARENT | EOPT_ONLY_FROM_SELF_OR_CHILD)) {
         bool or_result = false;
+        // Check if the sender is equal to the start state of the transition
         if (((eventOpts[cevent.event] & EOPT_ONLY_FROM_SELF) == EOPT_ONLY_FROM_SELF) && (cevent.sender == startStateId))
             or_result = true;
-        if ((eventOpts[cevent.event] & EOPT_ONLY_FROM_SELF_OR_PARENT) == EOPT_ONLY_FROM_SELF_OR_PARENT) {
+        if ((eventOpts[cevent.event] & EOPT_ONLY_FROM_PARENT) == EOPT_ONLY_FROM_PARENT) {
+            // Check if the sender is a parent of the start_state.
             uint16_t cn = startStateId;
-            while ((cn = getParentIdBI(cn)) != ID_S_Undefined)
-                if (cevent.sender == cn)
+            while ((cn = getParentIdBI(cn)) != ID_S_Undefined) {
+                if (cevent.sender == cn) {
                     or_result = true;
-        }
-        if ((eventOpts[cevent.event] & EOPT_ONLY_FROM_SELF_OR_PARENT_OR_CHILD) ==
-                EOPT_ONLY_FROM_SELF_OR_PARENT_OR_CHILD) {
+                    break;
+                }
+        } }
+        if ((eventOpts[cevent.event] & EOPT_ONLY_FROM_CHILD) == EOPT_ONLY_FROM_CHILD) {
+            // check if a start state is a parent state of the sender state
             uint16_t cn = cevent.sender;
-            while ((cn = getParentIdBI(cn)) != ID_S_Undefined)
-                if (cn == startStateId)
+            while ((cn = getParentIdBI(cn)) != ID_S_Undefined) {
+                if (cn == startStateId) {
                     or_result = true;
-        }
+                    break;
+                }
+        } }
         if (!or_result)
             return false;
     }
@@ -278,14 +302,6 @@ void SystemBase::raiseEventIdByIds(uint16_t eventId, uint16_t senderStateId, boo
                           eventBufferReadPos, eventBufferWritePos);
         }
     }
-}
-void SystemBase::clearEvents() {
-    HWAL_Log *lol = this->hwal->logger_get();
-    lol->logf(HWAL_Log::Error, HWAL_Log::IGreen, "Clear events called - but disabled");
-
-//    HWAL_Log *lol = this->hwal->logger_get();
-//    lol->logf(HWAL_Log::Warning, HWAL_Log::IGreen, "Clear events called");
-//    eventBufferWritePos = 0; eventBufferReadPos = 0;
 }
 
 
@@ -445,5 +461,6 @@ bool SystemBase::checkIfStateIsChildOfOrSame(uint16_t parentState, uint16_t chil
     }
     return false;
 }
+
 
 

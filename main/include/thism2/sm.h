@@ -211,11 +211,14 @@ struct EventPayloadBool final : EventPayloadBase {
 };
 
 #define EOPT_ONLY_FROM_SELF 1
+#define EOPT_ONLY_FROM_PARENT 2
 #define EOPT_ONLY_FROM_SELF_OR_PARENT 3
+#define EOPT_ONLY_FROM_CHILD 4
+#define EOPT_ONLY_FROM_SELF_OR_CHILD 5
 #define EOPT_ONLY_FROM_SELF_OR_PARENT_OR_CHILD 7
-#define EOPT_IGNORE_IF_DEST_STATE_IS_ACTIVE 8
-#define EOPT_IGNORE_IF_CHILD_STATE_IS_ACTIVE 16
-#define EOPT_EXECUTE_INTERNAL_TRANSITION_EVEN_IF_IGNORED 32
+#define EOPT_IGNORE_IF_DEST_STATE_IS_ACTIVE 16
+#define EOPT_IGNORE_IF_CHILD_STATE_IS_ACTIVE 32
+#define EOPT_EXECUTE_INTERNAL_TRANSITION_EVEN_IF_IGNORED 64
 #define EOPT_DONT_PRINT_RAISE_EVENT 128
 
 #ifdef __useNames
@@ -717,6 +720,7 @@ public:
     virtual ~SystemBase() { }
 
     void processEvents();
+    void clearEventBuffer();
 
 //    virtual void logEventName(uint16_t) { } // @todo make abstract
 //    virtual void logStateName(uint16_t) { } @todo make abstract
@@ -733,7 +737,6 @@ public:
     sys_detail::EventBuffer eventBufferGetElement(uint8_t idx) { return eventBuffer[idx]; }
 
     uint16_t getParentIdBI(uint16_t cstate);
-
     sys_detail::TransitionsForState transitionsForStateGetBI(uint16_t id) {
         sys_detail::TransitionsForState tfs;
         tfs.transitionNum = 0; tfs.transitions = 0;
@@ -792,7 +795,6 @@ public:
 
     /// \brief Activate inital states
     void initialSetup();
-    void clearEvents();
 
 protected:
     /// Checks the protection for an event processing a transition from \p startStateId to \p destStateId.
@@ -1451,7 +1453,8 @@ public:
     }
 };
 
-#define IsEventWithPayload(__SYS, __EVENT, __EVENT_VAR, __PAYLOAD_VAR_VOID, __PAYLOAD_VAR_OUT) const auto [_is_event, __PAYLOAD_VAR_OUT] = __SYS::isEventAndConvertPointer<__EVENT>( __EVENT_VAR,  __PAYLOAD_VAR_VOID); _is_event
+#define IsEventWithPayload(__SYS, __EVENT, __EVENT_VAR, __PAYLOAD_VAR_VOID, __PAYLOAD_VAR_OUT) \
+    const auto [_is_event, __PAYLOAD_VAR_OUT] = __SYS::isEventAndConvertPointer<__EVENT>( __EVENT_VAR,  __PAYLOAD_VAR_VOID); _is_event
 
 #define StateRefGet(__STATE, __var) auto &__var = smsys->getStateRef<__STATE>()
 
