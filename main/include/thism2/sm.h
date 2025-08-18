@@ -349,7 +349,11 @@ struct EventBinaryPayload : EventPayloadBase {
         arg.data_size = 0;
     }
 
-    explicit EventBinaryPayload(const char *data_in, int16_t _data_size) : data(nullptr), data_size(_data_size) {
+    explicit EventBinaryPayload(const void *data_in, const int16_t _data_size) : data(nullptr), data_size(_data_size) {
+        if(data_in != nullptr)
+            copy_data(static_cast<const char *>(data_in), data_size);
+    }
+    explicit EventBinaryPayload(const char *data_in, const int16_t _data_size) : data(nullptr), data_size(_data_size) {
         if(data_in != nullptr)
             copy_data(data_in, data_size);
     }
@@ -374,7 +378,7 @@ struct EventStringPayload : EventBinaryPayload {
     EventStringPayload(EventStringPayload&& arg) : EventBinaryPayload(std::move(arg))
     { }
 
-    explicit EventStringPayload(const char *str_in) : EventBinaryPayload(nullptr, 0) {
+    explicit EventStringPayload(const char *str_in) : EventBinaryPayload((char*)nullptr, 0) {
         int16_t len;
         for(len=0; len < 300 && str_in[len] != 0; len++);
 

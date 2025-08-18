@@ -40,6 +40,7 @@ SystemBase::SystemBase(HWAL *_hwal)
 
 #include <string.h>
 
+
 void SystemBase::clearEventBuffer() {
     uint8_t readUntil = eventBufferWritePos;
     if(eventBufferReadPos == readUntil)

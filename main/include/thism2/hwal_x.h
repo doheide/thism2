@@ -151,10 +151,10 @@ public:
         this->set_this_to_logger(this->logger);
     }
 
-    HWAL_Log *logger_get() { return logger; }
+    HWAL_Log *logger_get() final { return logger; }
     LoggerT *logger_t_get() { return logger; }
 
-    virtual uint8_t write_logger_time(uint64_t t)  {
+    uint8_t write_logger_time(uint64_t t) override {
         return logger->write_time(t);
     }
 };
