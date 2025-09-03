@@ -1453,7 +1453,7 @@ public:
     }
     template<typename EVENT>
     static std::tuple<bool, typename EVENT::payload_type*> isEventAndConvertPointer(uint16_t event, void *p) {
-        return {event == EventId<EVENT>(), static_cast<typename EVENT::payload_type*>(p)};
+        return {event == EventId<EVENT>(), (typename EVENT::payload_type*)p};
     }
 };
 
