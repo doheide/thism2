@@ -8,6 +8,8 @@ SMSys *smsys;
 
 int main() {
     HWAL_Std_No_HW hwal(HWAL_Log::_MaxLogLevel);
+    hwal.logger_get()->print_log_level();
+
     SMSys csmsys(&hwal);
     smsys = &csmsys;
 

@@ -60,6 +60,8 @@ protected:
         }
 
     }
+
+public:
     void write_loglevel(LogLevel ll) {
         switch(ll) {
             case Always: write_to_log("[-------]"); break;
@@ -68,10 +70,10 @@ protected:
             case Info: write_to_log("[Info   ]"); break;
             case Debug: write_to_log("[Debug  ]"); break;
             case Details: write_to_log("[Details]"); break;
+            case _MaxLogLevel: write_to_log("[MaxLoglevel]"); break;
         };
     }
 
-public:
     explicit HWAL_Log(LogLevel ll = LogLevel::_MaxLogLevel) : log_str{} {
         this->max_loglevel = ll;
         this->hwal = nullptr;
@@ -106,6 +108,12 @@ public:
     }
 
     virtual LogLevel loglevel_max_to_display() { return max_loglevel; }
+
+    void print_log_level() {
+        write_to_log("Max loglevel: ");
+        write_loglevel(max_loglevel);
+        write_to_log("\n");
+    }
 
 protected:
     bool is_loglevel_displayable(LogLevel ll_cline, LogLevel ll_display) {
