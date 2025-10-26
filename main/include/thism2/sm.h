@@ -621,7 +621,7 @@ struct STATECLASSNAME : public StateBase {       \
 StateSetup(STATECLASSNAME, DESCRIPTION)
 
 #define StateSetup(STATECLASSNAME, DESCRIPTION, ...) \
-StateSetupWLL(STATECLASSNAME, DESCRIPTION, HWAL_Log::Always, ##__VA_ARGS__)
+StateSetupWLL(STATECLASSNAME, DESCRIPTION, HWAL_Log::_MaxLogLevel, ##__VA_ARGS__)
 
 #define StateSetupWLL(STATECLASSNAME, STATEDESCRIPTION, LL, ...) \
 public: \
@@ -1117,12 +1117,31 @@ namespace statemachine_detail {
 struct SMName : StateMachine<__VA_ARGS__> { }
 #endif
 #ifdef __useNames
-#define Make_StateMachine(SMName, _doLog, ...) \
-    struct SMName : StateMachine<__VA_ARGS__> { \
-        static const char *name() { return #SMName; } \
-        SMName() { doLog = _doLog; } \
-        bool doLog; \
-    }
+#ifdef __useDescription
+    #define Make_StateMachine(SMName, _doLog, ...) \
+        struct SMName : StateMachine<__VA_ARGS__> { \
+            static const char *name() { return #SMName; } \
+            static const char *description() { return ""; } \
+            SMName() { doLog = _doLog; } \
+            bool doLog; \
+        }
+    #define Make_StateMachineWithDescription(SMName, DESCRIPTION, _doLog, ...) \
+        struct SMName : StateMachine<__VA_ARGS__> { \
+            static const char *name() { return #SMName; } \
+            static const char *description() { return #DESCRIPTION; } \
+            SMName() { doLog = _doLog; } \
+            bool doLog; \
+        }
+#else
+    #define Make_StateMachine(SMName, _doLog, ...) \
+        struct SMName : StateMachine<__VA_ARGS__> { \
+            static const char *name() { return #SMName; } \
+            SMName() { doLog = _doLog; } \
+            bool doLog; \
+        }
+    #define Make_StateMachineWithDescription(SMName, DESCRIPTION, _doLog, ...) \
+        Make_StateMachine(SMName, _doLog, __VA_ARGS__)
+#endif
 #endif
 
 template< typename ... STATEs>

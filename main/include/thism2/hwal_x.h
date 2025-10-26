@@ -38,11 +38,11 @@ protected:
     }
 
 public:
-    enum LogLevel {Always, Error, Warning, Info, Details, Debug};
+    enum LogLevel {Always, Error, Warning, Info, Details, Debug, _MaxLogLevel};
     enum Color {Reset=-2, NoColor, DDRed, DRed, Red, DGreen, IGreen, Yellow, Pink, LBlue, Orange, DOrange};
 
 protected:
-    LogLevel cloglevel;
+    LogLevel max_loglevel;
 
     void write_color(int8_t c) {
         switch(c) {
@@ -72,14 +72,14 @@ protected:
     }
 
 public:
-    explicit HWAL_Log(LogLevel ll = LogLevel::Always) : log_str{} {
-        this->cloglevel = ll;
+    explicit HWAL_Log(LogLevel ll = LogLevel::_MaxLogLevel) : log_str{} {
+        this->max_loglevel = ll;
         this->hwal = nullptr;
     }
 
 public:
-    void logs(LogLevel ll, int8_t color, const char *str, const char *statename=nullptr,
-              LogLevel ll_in=LogLevel::Always);
+    void logs(LogLevel ll_cline, int8_t color, const char *str, const char *statename=nullptr,
+              LogLevel ll_display=LogLevel::Always);
 
     virtual void logfll(LogLevel ll, LogLevel ll_display, int8_t color, const char *format, ...) {
         va_list args;
@@ -105,11 +105,21 @@ public:
         logs(ll,  color, log_str);
     }
 
-    virtual LogLevel loglevel_to_display_get() { return cloglevel; }
+    virtual LogLevel loglevel_max_to_display() { return max_loglevel; }
 
 protected:
+    bool is_loglevel_displayable(LogLevel ll_cline, LogLevel ll_display) {
+        if (ll_cline > max_loglevel) return false;
+
+        if (ll_cline <= ll_display)
+            return true;
+        return false;
+    }
+
     virtual void log_args(LogLevel ll, int8_t color, const char *format, va_list args,
                           const char *statename= nullptr, LogLevel ll_display=LogLevel::Always) {
+        if (!is_loglevel_displayable(ll, ll_display)) return;
+
         write_to_mem(log_str, HWAL_LOG_BUFFER_SIZE, format, args);
         logs(ll, color, log_str, statename, ll_display);
     }

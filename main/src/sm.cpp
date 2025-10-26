@@ -23,7 +23,7 @@
 //
 
 #include <thism2/sm.h>
-
+#include <inttypes.h>
 
 SystemBase::SystemBase(HWAL *_hwal)
     : hwal(_hwal), eventBuffer{}, doLogTransitions(true), doLogRaiseEvent(true),
@@ -290,7 +290,10 @@ void SystemBase::raiseEventIdByIds(uint16_t eventId, uint16_t senderStateId, boo
     if(eventBufferWritePos==eventBufferReadPos) {
         eventBufferReadPos = 0;
         eventBufferWritePos = 0;
-        eventBuffer[eventBufferWritePos++] = {ID_E_FatalError, ID_S_Undefined, new E_FatalError::payload_type("EventRingBuffer full") };
+        char estr[48];
+        sprintf(estr, "EventRingBuffer full (last event: %" PRIu16 ")", eventId);
+        eventBuffer[eventBufferWritePos++] = {ID_E_FatalError, ID_S_Undefined,
+            new E_FatalError::payload_type(estr) };
     }
     raiseEvent_MutexUnLock();
 

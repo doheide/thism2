@@ -30,6 +30,19 @@ target_link_libraries (example_exe LINK_PUBLIC libthism2)
 
 
 # ***********************************************************************************************
+# example2
+add_subdirectory(example2)
+
+add_executable(example2_exe ${EX2_CODE})
+
+#target_compile_definitions(example_exe PRIVATE __useNames __noDescription)
+
+target_include_directories(example2_exe PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/main/include example2/src)
+
+target_link_libraries (example2_exe LINK_PUBLIC libthism2)
+
+
+# ***********************************************************************************************
 # diagrams
 find_package(Qt5Core)
 #if (DEFINED Qt5Core)

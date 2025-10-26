@@ -39,7 +39,9 @@ struct HWAL_Std_No_HW : public HWAL_LoggerT<HWAL_Log_Std> {
     void sysTick_MutexUnLock() final {};
 
     void raiseEvent_MutexLockOrWait() final {};
-    void raiseEvent_MutexUnLock() final {};
+    void raiseEvent_MutexUnLock() final {}
+
+    uint64_t get_time_since_start() override { return get_time(); }
 };
 
 

@@ -185,8 +185,15 @@ namespace helper {
     struct Make_Treeuml_allSMs_impl<SYS, Collector<SM, SMs...>> {
         QString operator()(SYS *sys, const char *path) {
             QString uml_main_part = make_treeuml<SM>(sys);
-            QString uml_str = QString("@startuml\n\ntitle %1\n\n%2\n\n@enduml\n")
+            QString uml_str = QString("@startuml\n\ntitle %1\n\n%2\n")
                     .arg(SM::name()).arg(uml_main_part);
+
+#ifdef __useDescription
+            if (strlen(SM::description())>0)
+                uml_str += QString("\nnote %1 as NOTE_MAIN\n").arg(QString(SM::description())
+                    .replace("\" \"", ""));
+#endif
+            uml_str += "\n@enduml\n";
 
             QFile file(QString("%1/%2.uml").arg(path).arg(SM::name()));
             if (!file.open(QIODevice::WriteOnly | QIODevice::Text))

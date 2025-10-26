@@ -2,17 +2,19 @@
 // Created by dheide on 15.11.21.
 //
 #include "thism2/hwal_x.h"
+#include <cstdio>
 
 
-#include <stdio.h>
-void HWAL_Log::logs(LogLevel ll, int8_t color, const char *str, const char *statename,
-                    LogLevel ll_in) {
-    if(ll_in == LogLevel::Always)
-        ll_in = this->cloglevel;
+void HWAL_Log::logs(LogLevel ll_cline, int8_t color, const char *str, const char *statename, LogLevel ll_display) {
+    if (!is_loglevel_displayable(ll_cline, ll_display)) return;
 
-    if((int)ll > 0)
-        if((int) ll_in > (int) this->cloglevel)
-            return;
+    // if((int)ll > 0)
+    //     if((int) ll_in > (int) this->cloglevel)
+    //         return;
+
+    // if((int)ll > 0)
+    //     if((int) ll >= (int) ll_in)
+    //         return;
 
 //    int last_len;
     char *cstart = (char*) str, *cend = (char*) str;
@@ -30,7 +32,7 @@ void HWAL_Log::logs(LogLevel ll, int8_t color, const char *str, const char *stat
                 time_area = this->hwal->write_logger_time(t);
                 write_to_log(" ");
             }
-            write_loglevel(ll);
+            write_loglevel(ll_cline);
         }
         else for(int i=0; i!=time_area+9; i++)
                 write_to_log(" ");
