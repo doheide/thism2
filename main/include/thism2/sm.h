@@ -22,6 +22,8 @@
 // SOFTWARE.
 //
 
+// Lala lili
+
 #pragma once
 //#ifndef SM_H
 //#define SM_H
@@ -388,10 +390,10 @@ struct EventStringPayload : EventBinaryPayload {
         data[len - 1] = 0;
     }
 };
-// struct EventBoolPayload : EventPayloadBase {
-//     bool b;
-//     explicit EventBoolPayload(bool _b) : b(_b) { }
-// };
+struct EventBoolPayload : EventPayloadBase {
+     bool b;
+     explicit EventBoolPayload(const bool _b) : b(_b) { }
+};
 
 struct E_FatalError; MAKE_EVENT_W_PAYLOAD(E_FatalError, 0, EventStringPayload);
 struct E_Initial; MAKE_EVENT(E_Initial, EOPT_ONLY_FROM_SELF);
@@ -595,7 +597,7 @@ StateSetup(STATECLASSNAME, DESCRIPTION)*/
 
 
 #define StateSetup(STATECLASSNAME, DESCRIPTION, ...) \
-StateSetupWLL(STATECLASSNAME, DESCRIPTION, HWAL_Log::Always, ##__VA_ARGS__)
+StateSetupWLL(STATECLASSNAME, DESCRIPTION, HWAL_Log::_MaxLogLevel, ##__VA_ARGS__)
 
 #define StateSetupWLL(STATECLASSNAME, STATEDESCRIPTION, LL, ...) \
 public: \

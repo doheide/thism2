@@ -81,7 +81,7 @@ public:
 
 public:
     void logs(LogLevel ll_cline, int8_t color, const char *str, const char *statename=nullptr,
-              LogLevel ll_display=LogLevel::Always);
+              LogLevel ll_display=LogLevel::_MaxLogLevel);
 
     virtual void logfll(LogLevel ll, LogLevel ll_display, int8_t color, const char *format, ...) {
         va_list args;
@@ -117,6 +117,8 @@ public:
 
 protected:
     bool is_loglevel_displayable(LogLevel ll_cline, LogLevel ll_display) {
+        // return true;
+
         if (ll_cline > max_loglevel) return false;
 
         if (ll_cline <= ll_display)
