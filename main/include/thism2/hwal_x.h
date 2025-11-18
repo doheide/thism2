@@ -66,7 +66,7 @@ public:
         switch(ll) {
             case Always: write_to_log("[-------]"); break;
             case Error: write_to_log("\033[41m[Error  ]\033[0m"); break;
-            case Warning: write_to_log("\033[208m[Warning]\033[0m"); break;
+            case Warning: write_to_log("\033[38;5;208m[Warning]\033[0m"); break;
             case Info: write_to_log("[Info   ]"); break;
             case Debug: write_to_log("[Debug  ]"); break;
             case Details: write_to_log("[Details]"); break;

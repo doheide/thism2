@@ -77,6 +77,11 @@ void SystemBase::processEvents() {
     if(eventBufferReadPos == readUntil)
         return;
 
+    // cache the current activation state of states
+    bool *is_state_active_retain = new bool[numberOfStates];
+    for (uint16_t csi = 0; csi != numberOfStates; csi++)
+        is_state_active_retain[csi] = isStateActiveBI(csi);
+
     // ***
 /*    int log_num = 0;
     for(int ebrp = eventBufferReadPos;  ebrp!= readUntil; ebrp=(ebrp+1)&((1<<EVENT_BUFFER_SIZE_V)-1)) {
@@ -121,12 +126,15 @@ void SystemBase::processEvents() {
                 }
     }
 
-    for(eventBufferReadPos = eventBufferReadPos_buffer; eventBufferReadPos != readUntil; eventBufferReadPos=(eventBufferReadPos+1)&((1<<EVENT_BUFFER_SIZE_V)-1)) {
+    for(eventBufferReadPos = eventBufferReadPos_buffer; eventBufferReadPos != readUntil;
+        eventBufferReadPos=(eventBufferReadPos+1)&((1<<EVENT_BUFFER_SIZE_V)-1)) {
+
         sys_detail::EventBuffer &cevent = eventBuffer[eventBufferReadPos];
 
         for (uint16_t level = maxLevel; level != 0; level--)
             for (uint16_t csi = 0; csi != numberOfStates; csi++)
-                if (isStateActiveBI(csi) && (stateLevels[csi] == level)) {
+                if (is_state_active_retain[csi] && isStateActiveBI(csi) && (stateLevels[csi] == level)) {
+                // if (isStateActiveBI(csi) && (stateLevels[csi] == level)) {
                     //BAHABase->logLine("active + level: ", (uint16_t) level, " ", StateIdT{csi}, " ", (uint8_t)csi);
 
                     for (uint16_t tii = 0; tii != transitionsNumberPerState[csi]; tii++) {
@@ -160,6 +168,8 @@ void SystemBase::processEvents() {
             cevent.payload = nullptr;
         }
     }
+
+    delete [] is_state_active_retain;
 }
 
 #include <stdio.h>

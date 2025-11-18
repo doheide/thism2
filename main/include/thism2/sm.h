@@ -57,7 +57,9 @@
 
 // *****************************************************************
 // *****************************************************************
+#ifndef EVENT_BUFFER_SIZE_V
 #define EVENT_BUFFER_SIZE_V 6
+#endif
 #define STATE_NESTING_LEVEL_MAX 30
 
 //#define __useNames
@@ -741,6 +743,11 @@ public:
     uint8_t eventBufferReadPosGet() { return eventBufferReadPos; }
     uint8_t eventBufferWritePosGet() { return eventBufferWritePos; }
     sys_detail::EventBuffer eventBufferGetElement(uint8_t idx) { return eventBuffer[idx]; }
+    uint8_t eventBufferLenGet() {
+        if(eventBufferWritePos >= eventBufferReadPos)
+            return eventBufferWritePos - eventBufferReadPos;
+        return eventBufferWritePos + (1<<EVENT_BUFFER_SIZE_V) - eventBufferReadPos;
+    }
 
     uint16_t getParentIdBI(uint16_t cstate);
     sys_detail::TransitionsForState transitionsForStateGetBI(uint16_t id) {
